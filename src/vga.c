@@ -3,7 +3,7 @@
 
 static u16 *framebuffer_address = (u16*)0xb8000;
 
-static const u16 num2char[10] = {'0', 
+static const char num2char[16] = {'0', 
                                  '1', 
                                  '2', 
                                  '3', 
@@ -12,7 +12,13 @@ static const u16 num2char[10] = {'0',
                                  '6', 
                                  '7', 
                                  '8', 
-                                 '9'};
+                                 '9',
+                                 'a',
+                                 'b',
+                                 'c',
+                                 'd',
+                                 'e',
+                                 'f'};
 
 void vga_clear(struct framebuffer *fb)
 {
@@ -75,7 +81,7 @@ void vga_print_str(struct framebuffer *fb, char *s)
 void vga_print_uint(struct framebuffer *fb, u64 n)
 {
     int i = 0;    // Position
-    u16 buf[32];  // Buffer to hold string representation
+    char buf[32]; // Buffer to hold string representation
 
     if(n == 0)
     {
@@ -87,14 +93,46 @@ void vga_print_uint(struct framebuffer *fb, u64 n)
         // Preparation
         while(n > 0)
         {
-            buf[i] = vga_craft_char(fb, (u16)num2char[n % 10]);
+            buf[i] = num2char[n % 10];
             n = n / 10;
             i++;
         }
         // Go back one
         i--;
         // Actual printing
-        while(buf[i] != '\0')
+        while(i >= 0)
+        {
+            vga_print_char(fb, buf[i]);
+            i--;
+        }        
+    }
+}
+
+void vga_print_hex(struct framebuffer *fb, u64 n)
+{
+    int i = 0;    // Position
+    char buf[32]; // Buffer to hold string representation
+
+    vga_print_str(fb, "0x");
+
+    if(n == 0)
+    {
+        vga_print_char(fb, '0');
+        return;
+    }
+    else 
+    {
+        // Preparation
+        while(n > 0)
+        {
+            buf[i] = num2char[n % 16];
+            n = n / 16;
+            i++;
+        }
+        // Go back one
+        i--;
+        // Actual printing
+        while(i >= 0)
         {
             vga_print_char(fb, buf[i]);
             i--;
@@ -141,6 +179,9 @@ void vga_printf(struct framebuffer *fb, char *s, ...)
                     break;
                 case 'u':
                     vga_print_uint(fb, va_arg(arg, u64));
+                    break;
+                case 'h':
+                    vga_print_hex(fb, va_arg(arg, u64));
                     break;
                 case 'd':
                     vga_print_int(fb, va_arg(arg, i64));
