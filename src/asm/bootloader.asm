@@ -2,9 +2,9 @@ extern kmain
 
 global _start
 
-global id_ptr
-global id_dir
-global id_tab
+global page_id_ptr
+global page_id_dir
+global page_id_tab
 
 section .multiboot_header
 
@@ -58,49 +58,49 @@ _start:
     ; setup paging (identity mapping)
     
     ; map first level
-    mov eax, page_directory
+    mov eax, page_id_dir
     or eax, 0b11
-    mov [page_directory_pointer], eax
+    mov [page_id_ptr], eax
 
     ; map second level
-    mov eax, page_table
+    mov eax, page_id_tab
     or eax, 0b11
-    mov [page_directory], eax
+    mov [page_id_dir], eax
 
-    mov eax, page_table
+    mov eax, page_id_tab
     add eax, 0x1000
     or eax, 0b11
-    mov [page_directory+8], eax
+    mov [page_id_dir+8], eax
 
-    mov eax, page_table
+    mov eax, page_id_tab
     add eax, 0x2000
     or eax, 0b11
-    mov [page_directory+16], eax
+    mov [page_id_dir+16], eax
 
-    mov eax, page_table
+    mov eax, page_id_tab
     add eax, 0x3000
     or eax, 0b11
-    mov [page_directory+24], eax
+    mov [page_id_dir+24], eax
 
     ; map first 4GiB of virtual space
-    mov edi, page_table
+    mov edi, page_id_tab
     mov esi, 0
     call fill_initial_pt
 
-    mov edi, page_table + 0x1000
+    mov edi, page_id_tab + 0x1000
     mov esi, 0x40000000
     call fill_initial_pt
 
-    mov edi, page_table + 0x2000
+    mov edi, page_id_tab + 0x2000
     mov esi, 0x80000000
     call fill_initial_pt
 
-    mov edi, page_table + 0x3000
+    mov edi, page_id_tab + 0x3000
     mov esi, 0xC0000000
     call fill_initial_pt
 
     ; finally enable paging
-    mov eax, page_directory_pointer
+    mov eax, page_id_ptr
     mov cr3, eax
 
     mov eax, cr4
@@ -166,16 +166,9 @@ resb 4096
 kernel_stack:
 
 ; identity mapping for whole virtual address space
-page_directory_pointer:
+page_id_ptr:
     resb 4096
-page_directory:
-    resb 4096
-page_table:
-    resb 4096 * 4
-
-id_ptr:
-    resb 4096
-id_dir:
+page_id_dir:
     resb 4096 * 512
-id_tab:
+page_id_tab:
     resb 4096 * 512 * 512

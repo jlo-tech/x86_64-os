@@ -1,10 +1,12 @@
 #include <vmm.h>
 
-// These functions are used to create the identity mapping
+// ***********************************************************
+// * These functions are used to create the identity mapping *
+// ***********************************************************
 
-extern struct page_table id_ptr;
-extern struct page_table id_dir[512];
-extern struct page_table id_tab[512 * 512];
+extern struct page_table page_id_ptr;
+extern struct page_table page_id_dir[512];
+extern struct page_table page_id_tab[512 * 512];
 
 void paging_id_fill_table(struct page_table *table, u64 frame_offset)
 {
@@ -29,17 +31,25 @@ void paging_id_fill_directory(struct page_table *directory, u64 frame_offset)
 // Full mapping of virtual address space
 void paging_id_full()
 {
-    paging_id_fill_directory(&id_ptr, &id_dir);
+    paging_id_fill_directory(&page_id_ptr, &page_id_dir);
 
     for(u64 i = 0; i < 512; i++)
     {
-        paging_id_fill_directory(&id_dir[i], &id_tab[i * 512]);
+        paging_id_fill_directory(&page_id_dir[i], &page_id_tab[i * 512]);
     }
 
     for(u64 i = 0; i < 512 * 512; i++)
     {
-        paging_id_fill_table(&id_tab[i], i * 0x40000000);
+        paging_id_fill_table(&page_id_tab[i], i * 0x40000000);
     }
+}
 
-    __asm__ volatile("mov %0,%%cr3" : : "r" (&id_ptr) : "memory");
+// *************************************************************
+// * These functions are for general purpose paging operations *
+// *************************************************************
+
+void paging_activate(struct page_table *table)
+{
+    // Activate page table
+    __asm__ volatile("mov %0,%%cr3" : : "r" (table) : "memory");
 }
