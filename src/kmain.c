@@ -1,9 +1,13 @@
 #include <vga.h>
 #include <pmm.h>
+
 #include <multiboot.h>
 
 void kmain(struct multiboot_information *mb_info)
 {
+    // Setup identity page mapping
+    paging_id_full();
+
     struct framebuffer fb;
     fb.fgc = green;
     fb.bgc = black;
@@ -27,7 +31,7 @@ void kmain(struct multiboot_information *mb_info)
         struct multiboot_memory_map_entry *entry = (((u8*)memmap + 16) + i * memmap->entry_size);
         u64 etype = (u64)entry->type;
         u64 eaddr = (u64)entry->address;
-        u64 elen = (u64)entry->length;
+        u64 elen  = (u64)entry->length;
 
         if(true)
         {
@@ -40,20 +44,17 @@ void kmain(struct multiboot_information *mb_info)
 
             if(i == 3)
             {
-                //root->next = eaddr;
-                //root->next->size = elen;
+                root->next = eaddr;
+                root->next->size = elen;
             }
 
             if(i == 6)
             {
-                //root->next->next = eaddr; //eaddr+16;
-                //root->next->next->size = elen;
+                root->next->next = eaddr;
+                root->next->next->size = elen;
             }
         }
     }
-
-
-    return;
 
     vga_printf(&fb, "%h\n", root->size);
     vga_printf(&fb, "%h\n", root->next->size);

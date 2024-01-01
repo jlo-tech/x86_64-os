@@ -2,6 +2,10 @@ extern kmain
 
 global _start
 
+global id_ptr
+global id_dir
+global id_tab
+
 section .multiboot_header
 
 header_start:
@@ -168,3 +172,10 @@ page_directory:
     resb 4096
 page_table:
     resb 4096 * 4
+
+id_ptr:
+    resb 4096
+id_dir:
+    resb 4096 * 512
+id_tab:
+    resb 4096 * 512 * 512
