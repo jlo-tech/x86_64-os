@@ -26,5 +26,5 @@ struct multiboot_memory_map_entry
 } __attribute__((packed));
 
 struct multiboot_memory_map* multiboot_memmap(struct multiboot_information* mb_info);
-u64 multiboot_memmap_num_entries(struct multiboot_memory_map* memmap);
+int multiboot_memmap_num_entries(struct multiboot_memory_map* memmap);
 struct multiboot_memory_map_entry* multiboot_memmap_entry(struct multiboot_memory_map *memmap, u64 index);

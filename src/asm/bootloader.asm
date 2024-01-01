@@ -22,6 +22,14 @@ header_start:
 
 header_end:
 
+; 32
+extern mem_zero
+extern fill_initial_pt
+
+; 64
+extern fill_page_directory
+extern fill_page_table
+
 section .text
 
 bits 32
@@ -44,64 +52,48 @@ _start:
     push ebx
 
     ; setup paging (identity mapping)
-    ; using page size extension allows to map 2MiB pages
-
+    
     ; map first level
-    mov eax, page_directories
-    xor ebx, ebx
-.page_first_level_loop:
-    add eax, 0b11
-    mov [page_directory_pointer + ebx * 8], eax
-    sub eax, 0b11
-    inc ebx
-    add eax, 4096
-    ; check if all page directories were mapped
-    cmp ebx, 512
-    jne .page_first_level_loop
+    mov eax, page_directory
+    or eax, 0b11
+    mov [page_directory_pointer], eax
 
     ; map second level
-    mov eax, page_tables
-    xor ebx, ebx
-    xor ecx, ecx
-    mov edx, page_directories
-.page_second_level_loop:
-    add eax, 0b11
-    mov [edx + ebx * 8], eax
-    sub eax, 0b11
-    inc ebx ; go to next entry
-    add eax, 4096 ; go to next page table
-    ; check if all page tables were mapped for that directory
-    cmp ebx, 512
-    jne .page_second_level_loop
-    ; move on to new page directory
-    mov ebx, 0
-    inc ecx
-    add edx, 4096 ; go to next page directory
-    ; and check if we are finished
-    cmp ecx, 512
-    jne .page_second_level_loop
+    mov eax, page_table
+    or eax, 0b11
+    mov [page_directory], eax
 
-    ; map third level directly to pages cause of PSE (2MiB pages)
-    xor eax, eax
-    xor ebx, ebx
-    xor ecx, ecx
-    mov edx, page_tables
-.page_third_level_loop:
-    add eax, 0b10000011
-    mov [edx + ebx * 8], eax
-    sub eax, 0b10000011
-    add eax, 0x200000
-    inc ebx
-    ; check if all page entries were mapped for that table
-    cmp ebx, 512
-    jne .page_third_level_loop
-    ; move on to new page directory
-    mov ebx, 0
-    inc ecx
-    add edx, 4096 ; go to next page directory
-    ; and check if we are finished
-    cmp ecx, 512 * 512
-    jne .page_third_level_loop
+    mov eax, page_table
+    add eax, 0x1000
+    or eax, 0b11
+    mov [page_directory+8], eax
+
+    mov eax, page_table
+    add eax, 0x2000
+    or eax, 0b11
+    mov [page_directory+16], eax
+
+    mov eax, page_table
+    add eax, 0x3000
+    or eax, 0b11
+    mov [page_directory+24], eax
+
+    ; map first 4GiB of virtual space
+    mov edi, page_table
+    mov esi, 0
+    call fill_initial_pt
+
+    mov edi, page_table + 0x1000
+    mov esi, 0x40000000
+    call fill_initial_pt
+
+    mov edi, page_table + 0x2000
+    mov esi, 0x80000000
+    call fill_initial_pt
+
+    mov edi, page_table + 0x3000
+    mov esi, 0xC0000000
+    call fill_initial_pt
 
     ; finally enable paging
     mov eax, page_directory_pointer
@@ -137,7 +129,7 @@ _kernel:
     mov gs, ax
     mov ss, ax
 
-    ; pass multiboot2 information structure to rust
+    ; pass multiboot2 information structure to kernel
     pop rdi
 
     call kmain
@@ -171,8 +163,8 @@ kernel_stack:
 
 ; identity mapping for whole virtual address space
 page_directory_pointer:
-    resb 4096 * 1
-page_directories:
-    resb 4096 * 512
-page_tables:
-    resb 4096 * 512 * 512
+    resb 4096
+page_directory:
+    resb 4096
+page_table:
+    resb 4096 * 4

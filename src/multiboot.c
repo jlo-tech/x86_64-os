@@ -12,7 +12,7 @@ static struct multiboot_information* multiboot_next_tag(struct multiboot_informa
         p = (p & mask) + 8;
     }
 
-    return (struct multiboot_information*)p;
+    return (struct multiboot_information*)(u64)p;
 }
 
 struct multiboot_memory_map* multiboot_memmap(struct multiboot_information* mb_info)
@@ -25,14 +25,14 @@ struct multiboot_memory_map* multiboot_memmap(struct multiboot_information* mb_i
     return (struct multiboot_memory_map*)mb_info;
 }
 
-u64 multiboot_memmap_num_entries(struct multiboot_memory_map* memmap)
+int multiboot_memmap_num_entries(struct multiboot_memory_map* memmap)
 {
-    return (memmap->size - 16) / memmap->entry_size;
+    return (int)((memmap->size - 16) / memmap->entry_size);
 }
 
 struct multiboot_memory_map_entry* multiboot_memmap_entry(struct multiboot_memory_map *memmap, u64 index)
 {
     u64 num_entries = multiboot_memmap_num_entries(memmap);
     index = index % num_entries;
-    return memmap + 16 + index * memmap->entry_size;
+    return (struct multiboot_memory_map_entry*)(memmap + 16 + index * memmap->entry_size);
 }

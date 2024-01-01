@@ -1,7 +1,11 @@
 #pragma once
 
+#define NULL ((void*)0)
+
 #define false 0
 #define true  1
+
+typedef unsigned char       bool;
 
 typedef unsigned char       u8;
 typedef unsigned short      u16;
