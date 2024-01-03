@@ -48,6 +48,17 @@ void paging_id_full()
 // * These functions are for general purpose paging operations *
 // *************************************************************
 
+#define PAGE_PRESENT    (1 << 0)     // Page is in memory/valid
+#define PAGE_WRITABLE   (1 << 1)     // Page is writable
+#define PAGE_USER       (1 << 2)     // Page accessible by user
+#define PAGE_WTCACHE    (1 << 3)     // Write through cache
+#define PAGE_DCACHING   (1 << 4)     // Disable caching
+#define PAGE_ACCESSED   (1 << 5)     // Set by cpu when page was accessed
+#define PAGE_DIRTY      (1 << 6)     // Set by cpu on write to this page
+#define PAGE_HUGE       (1 << 7)     // Creates 1GiB page in level 3 and a 2MiB Page in level 2
+#define PAGE_GLOBAL     (1 << 8)     // Page won't be flushed from caches on addr space switch, but PGE bit in CR4 must be set
+#define PAGE_NO_EXEC    (1 << 63)    // Page isn't executable, NXE bit in EFER must be set
+
 void paging_activate(struct page_table *table)
 {
     // Activate page table
