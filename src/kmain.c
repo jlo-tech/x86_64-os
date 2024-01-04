@@ -7,19 +7,6 @@
 
 static struct framebuffer fb;
 
-struct interrupt_descriptor_table idt __attribute__((aligned(64)));                 // Alignment for better performance
-struct interrupt_descriptor_table_descriptor idtr __attribute__((aligned(16)));
-
-void double_fault_handler()
-{
-    vga_printf(&fb, "I am handling interrupts now!\n");
-
-    while(1)
-    {
-        __asm__ volatile("nop");
-    }
-}
-
 void kmain(struct multiboot_information *mb_info)
 {
     // Setup identity page mapping
@@ -76,20 +63,10 @@ void kmain(struct multiboot_information *mb_info)
     vga_printf(&fb, "%h\n", root->next->size);
     vga_printf(&fb, "%h\n", root->next->next->size);
 
-    idt_init(&idt);
-    for(int i = 0; i < 256; i++)
-    {
-        if(i < 22 || i > 31)
-        {
-            idt_register_handler(&idt, i, (u64)double_fault_handler, IDT_PRESENT | IDT_PRIV(3) | IDT_INT_GATE);
-        }
-    }
-
-    idtr.limit = 256 * 16 - 1;
-    idtr.base = (u64)&idt;
-
-    idt_register(&idtr);
+    intr_setup();
     intr_enable();
+
+    vga_printf(&fb, "Still alive!\n");
 
     // Wait for interrupts
     __asm__ volatile("hlt");

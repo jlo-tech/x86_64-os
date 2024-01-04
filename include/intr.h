@@ -1,5 +1,6 @@
 #pragma once
 
+#include <isr.h>
 #include <util.h>
 
 #define IDT_INT_GATE    (0b1110 << 8)  // Disables interrupts on handler entry
@@ -34,3 +35,12 @@ void idt_register_handler(struct interrupt_descriptor_table *idt, u64 id, u64 ha
 
 void intr_enable();
 void intr_disable();
+
+void intr_setup();
+
+struct cpu_context
+{
+
+};
+
+struct cpu_context* intr_handler(struct cpu_context* saved_context, u64 code);
