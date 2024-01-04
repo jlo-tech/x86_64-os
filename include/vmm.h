@@ -7,3 +7,5 @@ struct page_table
 {
     u64 entries[512];
 } __attribute__((packed));
+
+void paging_id_full();
