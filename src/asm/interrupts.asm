@@ -96,7 +96,7 @@ isr_stub:
     ; restore context
     restore_context
 
-    ; remove interrupt code from stack
+    ; remove interrupt code (pushed by the ISRs) from stack
     add rsp, 8
 
     ; return from interrupt
