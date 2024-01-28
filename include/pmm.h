@@ -24,20 +24,18 @@ struct ktree_node
     struct ktree_node *parent;
 };
 
-/* 
-    Insert a new node into ktree
-    - foreign_selector is a pointer to the selector in the embedding structure
-    - selector_offset is the offset from the ktree node to the selector
-    - Comparison function (takes current node's selector value and foreigner's selector value, 
-      computes offset to selector member and returns -1 on <, 0 on ==, 1 on >)
+/** 
+ * Insert a new node into the ktree
+ * @param container is a pointer to the container structure
+ * @param offset is the offset from the container to the ktree_node
+ * @param compare Comparison function (takes two container structures and returns -1 on <, 0 on ==, 1 on >)
 */
-void ktree_insert(struct ktree_root *root, void *foreign_selector, i64 selector_offset, i64 (*compare)(void *c, void *f));
+void ktree_insert(struct ktree_root *root, void *container, i64 offset, i64 (*compare)(void*, void*));
 
-/*
-    Remove node from tree
-
+/** 
+ * Remove node from the ktree
 */
-void ktree_remove(struct ktree_root *root, void *foreign_selector, i64 selector_offset, i64 (*compare)(void *c, void *f));
+void ktree_remove(struct ktree_root *root, void *container, i64 offset, i64 (*compare)(void*, void*));
 
 
 /* We will use a modified version of the buddy allocator 
