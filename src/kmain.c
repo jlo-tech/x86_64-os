@@ -7,31 +7,33 @@
 
 static struct framebuffer fb;
 
-// Static vars for testing the ktree code
-struct ktree_root kt_root;
-struct container kt_node0;
-struct container kt_node1;
-struct container kt_node2;
-struct container kt_node3;
-
 struct container
 {
-    u64 selector;
-    struct ktree_node node;
+    u64 data;
+    struct ktree tree;
 } __attribute__((packed));
 
-i64 cmp(struct container *c0, struct container *c1)
+int cmp(void *x, void *y)
 {
-    if(c0->selector < c1->selector)
-    {
-        return -1;
-    }
-    if(c0->selector > c1->selector)
-    {
+    u64 a = *(u64*)x;
+    u64 b = *(u64*)y;
+
+    if(a == b)
+        return 0;
+    if(a < b)
         return 1;
-    }
+    if(a > b)
+        return -1;
+
     return 0;
 }
+
+struct container c0 = {.data = 0, .tree = {.valid = {0, 0}}};
+struct container c1 = {.data = 1, .tree = {.valid = {0, 0}}};
+struct container c2 = {.data = 2, .tree = {.valid = {0, 0}}};
+struct container c3 = {.data = 3, .tree = {.valid = {0, 0}}};
+struct container c4 = {.data = 4, .tree = {.valid = {0, 0}}};
+struct container c5 = {.data = 5, .tree = {.valid = {0, 0}}};
 
 void kmain(struct multiboot_information *mb_info)
 {
@@ -55,10 +57,11 @@ void kmain(struct multiboot_information *mb_info)
 
     for(int i = 0; i < multiboot_memmap_num_entries(memmap); i++)
     {
-        struct multiboot_memory_map_entry *entry = (((u8*)memmap + 16) + i * memmap->entry_size);
+        struct multiboot_memory_map_entry *entry = (struct multiboot_memory_map_entry*)(((u8*)memmap + 16) + i * memmap->entry_size);
         u64 etype = (u64)entry->type;
         u64 eaddr = (u64)entry->address;
         u64 elen  = (u64)entry->length;
+        vga_printf(&fb, "Type: %d, Addr: %d, Len: %d\n", etype, eaddr, elen);
     }
 
     intr_setup();
@@ -66,15 +69,14 @@ void kmain(struct multiboot_information *mb_info)
 
     vga_printf(&fb, "Still alive!\n");
 
-    kt_node0.selector = 1;
-    kt_node1.selector = 0;
-    kt_node2.selector = 3;
-    kt_node3.selector = 2;
-
-    ktree_insert(&kt_root, &kt_node0, 8, cmp);
-    ktree_insert(&kt_root, &kt_node1, 8, cmp);
-    ktree_insert(&kt_root, &kt_node2, 8, cmp);
-    ktree_insert(&kt_root, &kt_node3, 8, cmp);
+    ktree_insert(&c2.tree, &c0.tree, 8, cmp);
+    ktree_insert(&c2.tree, &c1.tree, 8, cmp);
+    ktree_insert(&c2.tree, &c4.tree, 8, cmp);
+    ktree_insert(&c2.tree, &c3.tree, 8, cmp);
+    ktree_insert(&c2.tree, &c5.tree, 8, cmp);
+    
+    ktree_remove(&c2.tree, &c4.tree, 8, cmp);
+    ktree_remove(&c2.tree, &c5.tree, 8, cmp);
 
     vga_printf(&fb, "Still alive\n");
 
