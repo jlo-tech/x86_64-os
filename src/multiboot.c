@@ -4,7 +4,7 @@ static struct multiboot_information* multiboot_next_tag(struct multiboot_informa
 {
     u32 mask = ~0b111;
     
-    u32 p = (u32)mb_info;
+    u32 p = (u32)(u64)mb_info;
     p = p + mb_info->size;
 
     if((p & mask) != 0)

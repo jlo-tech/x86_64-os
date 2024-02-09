@@ -31,11 +31,11 @@ void paging_id_fill_directory(struct page_table *directory, u64 frame_offset)
 // Full mapping of virtual address space
 void paging_id_full()
 {
-    paging_id_fill_directory(&page_id_ptr, &page_id_dir);
+    paging_id_fill_directory(&page_id_ptr, (u64)&page_id_dir);
 
     for(u64 i = 0; i < 512; i++)
     {
-        paging_id_fill_directory(&page_id_dir[i], &page_id_tab[i * 512]);
+        paging_id_fill_directory(&page_id_dir[i], (u64)&page_id_tab[i * 512]);
     }
 
     for(u64 i = 0; i < 512 * 512; i++)

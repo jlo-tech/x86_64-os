@@ -35,3 +35,4 @@ clean:
 	@rm -r kernel.bin
 	@rm -r iso/boot/kernel.bin
 	@rm -r os.iso
+	@rm -r .gdb_history

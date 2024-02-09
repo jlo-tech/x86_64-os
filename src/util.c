@@ -8,7 +8,7 @@ void bzero(u8 *mem, u64 size)
     }
 }
 
-struct ktree* ktree_leftmost(struct ktree *root)
+struct ktree_node* ktree_leftmost(struct ktree_node *root)
 {
     if(root->valid[KTREE_LEFT])
     {
@@ -20,7 +20,7 @@ struct ktree* ktree_leftmost(struct ktree *root)
     }
 }
 
-struct ktree* ktree_rightmost(struct ktree *root)
+struct ktree_node* ktree_rightmost(struct ktree_node *root)
 {
     if(root->valid[KTREE_RIGHT])
     {
@@ -32,7 +32,7 @@ struct ktree* ktree_rightmost(struct ktree *root)
     }
 }
 
-void ktree_insert(struct ktree *root, struct ktree *node, 
+void __ktree_insert(struct ktree_node *root, struct ktree_node *node, 
                   int off, int (*cmp)(void*, void*))
 {
     void *rv = ((u8*)root) - off;
@@ -44,7 +44,7 @@ void ktree_insert(struct ktree *root, struct ktree *node,
     {
         if(root->valid[KTREE_LEFT])
         {
-            return ktree_insert(root->left, node, off, cmp);
+            return __ktree_insert(root->left, node, off, cmp);
         }
         else 
         {
@@ -58,7 +58,7 @@ void ktree_insert(struct ktree *root, struct ktree *node,
     {
         if(root->valid[KTREE_RIGHT])
         {
-            return ktree_insert(root->right, node, off, cmp);
+            return __ktree_insert(root->right, node, off, cmp);
         }
         else
         {
@@ -70,7 +70,7 @@ void ktree_insert(struct ktree *root, struct ktree *node,
     }
 }
 
-void ktree_remove(struct ktree *root, struct ktree *node, 
+void __ktree_remove(struct ktree_node *root, struct ktree_node *node, 
                   int off, int (*cmp)(void*, void*))
 {
     void *rv = ((u8*)root) - off;
@@ -122,7 +122,7 @@ void ktree_remove(struct ktree *root, struct ktree *node,
         // Two children
         if(root->valid[KTREE_LEFT] && root->valid[KTREE_RIGHT])
         {
-            struct ktree *tr = root->right;
+            struct ktree_node *tr = root->right;
             if(root->parent->left == root)
             {
                 root->parent->left = root->left;
@@ -131,7 +131,7 @@ void ktree_remove(struct ktree *root, struct ktree *node,
             {
                 root->parent->right = root->left;
             }
-            struct ktree *rm = ktree_rightmost(root->left);
+            struct ktree_node *rm = ktree_rightmost(root->left);
             rm->right = tr;
             rm->valid[KTREE_RIGHT] = true;
             rm->parent = root->parent;
@@ -143,7 +143,7 @@ void ktree_remove(struct ktree *root, struct ktree *node,
     {
         if(root->valid[KTREE_LEFT])
         {
-            ktree_remove(root->left, node, off, cmp);
+            __ktree_remove(root->left, node, off, cmp);
         }
         else 
         {
@@ -154,11 +154,77 @@ void ktree_remove(struct ktree *root, struct ktree *node,
     {
         if(root->valid[KTREE_RIGHT])
         {
-            ktree_remove(root->right, node, off, cmp);
+            __ktree_remove(root->right, node, off, cmp);
         }
         else 
         {
             return;
+        }
+    }
+}
+
+void ktree_insert(struct ktree *root, struct ktree_node *node, 
+                  int off, int (*cmp)(void*, void*))
+{
+    if(root->valid)
+    {
+        __ktree_insert(root->root, node, off, cmp);
+    }
+    else
+    {
+        root->valid = true;
+        root->root = node;
+    }
+}
+
+void ktree_remove(struct ktree *root, struct ktree_node *node, 
+                  int off, int (*cmp)(void*, void*))
+{
+    if(root->valid)
+    {
+        void *rv = ((u8*)root->root) - off;
+        void *nv = ((u8*)node) - off;
+
+        int r = cmp(rv, nv);
+
+        if(r == 0)
+        {
+            // Delete node
+
+            // No children
+            if(!root->root->valid[KTREE_LEFT] && !root->root->valid[KTREE_RIGHT])
+            {
+                root->valid = false;
+            }
+
+            // Only one child
+            if(!root->root->valid[KTREE_LEFT] && root->root->valid[KTREE_RIGHT])
+            {
+                root->root = root->root->right;
+            }
+            if(root->root->valid[KTREE_LEFT] && !root->root->valid[KTREE_RIGHT])
+            {
+                root->root = root->root->left;
+            }
+
+            // Two children
+            if(root->root->valid[KTREE_LEFT] && root->root->valid[KTREE_RIGHT])
+            {
+                struct ktree_node *tr = root->root->right;
+                root->root = root->root->left;
+                struct ktree_node *rm = ktree_rightmost(root->root);
+                rm->right = tr;
+                rm->valid[KTREE_RIGHT] = true;
+                tr->parent = rm;
+            }
+        }
+        else if(r < 0)
+        {
+            __ktree_remove(root->root->left, node, off, cmp);
+        }
+        else
+        {
+            __ktree_remove(root->root->right, node, off, cmp);
         }
     }
 }

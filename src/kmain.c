@@ -10,7 +10,7 @@ static struct framebuffer fb;
 struct container
 {
     u64 data;
-    struct ktree tree;
+    struct ktree_node tree;
 } __attribute__((packed));
 
 int cmp(void *x, void *y)
@@ -69,14 +69,19 @@ void kmain(struct multiboot_information *mb_info)
 
     vga_printf(&fb, "Still alive!\n");
 
-    ktree_insert(&c2.tree, &c0.tree, 8, cmp);
-    ktree_insert(&c2.tree, &c1.tree, 8, cmp);
-    ktree_insert(&c2.tree, &c4.tree, 8, cmp);
-    ktree_insert(&c2.tree, &c3.tree, 8, cmp);
-    ktree_insert(&c2.tree, &c5.tree, 8, cmp);
+    struct ktree rt = {.valid = false};
+
+    ktree_insert(&rt, &c2.tree, 8, cmp);
+    ktree_insert(&rt, &c0.tree, 8, cmp);
+    ktree_insert(&rt, &c1.tree, 8, cmp);
+    ktree_insert(&rt, &c4.tree, 8, cmp);
+    ktree_insert(&rt, &c3.tree, 8, cmp);
+    ktree_insert(&rt, &c5.tree, 8, cmp);
     
-    ktree_remove(&c2.tree, &c4.tree, 8, cmp);
-    ktree_remove(&c2.tree, &c5.tree, 8, cmp);
+    // TODO: Test ktree (new) implementation
+
+    ktree_remove(&rt, &c4.tree, 8, cmp);
+    ktree_remove(&rt, &c5.tree, 8, cmp);
 
     vga_printf(&fb, "Still alive\n");
 
