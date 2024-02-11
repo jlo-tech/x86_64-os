@@ -26,3 +26,6 @@ void ktree_insert(struct ktree *root, struct ktree_node *node,
 
 void ktree_remove(struct ktree *root, struct ktree_node *node, 
                   int off, int (*cmp)(void*, void*));
+
+bool ktree_contains(struct ktree *root, void *val, 
+                    int off, int (*cmp)(void*, void*));

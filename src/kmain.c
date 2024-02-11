@@ -80,6 +80,9 @@ void kmain(struct multiboot_information *mb_info)
 
     ktree_remove(&rt, &c1.tree, 8, cmp);
 
+    u64 x = 4;
+    vga_printf(&fb, "%d \n", ktree_contains(&rt, &x, 8, cmp));
+
     vga_printf(&fb, "Still alive\n");
 
     // Wait for interrupts

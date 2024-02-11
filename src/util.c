@@ -228,3 +228,42 @@ void ktree_remove(struct ktree *root, struct ktree_node *node,
         }
     }
 }
+
+bool ktree_contains(struct ktree *root, void *val, int off, int (*cmp)(void*, void*))
+{
+    struct ktree_node *curr = root->root;
+
+    while(true)
+    {
+        void *cv = ((u8*)curr) - off;
+
+        int r = cmp(cv, val);
+
+        if(r == 0)
+        {
+            return true;
+        }
+        else if(r < 0)
+        {
+            if(curr->valid[KTREE_LEFT])
+            {
+                curr = curr->left;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else
+        {
+            if(curr->valid[KTREE_RIGHT])
+            {
+                curr = curr->right;
+            }
+            else
+            {
+                return false;
+            }
+        }
+    }
+}
