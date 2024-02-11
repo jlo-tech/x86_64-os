@@ -71,17 +71,14 @@ void kmain(struct multiboot_information *mb_info)
 
     struct ktree rt = {.valid = false};
 
-    ktree_insert(&rt, &c2.tree, 8, cmp);
-    ktree_insert(&rt, &c0.tree, 8, cmp);
-    ktree_insert(&rt, &c1.tree, 8, cmp);
     ktree_insert(&rt, &c4.tree, 8, cmp);
+    ktree_insert(&rt, &c1.tree, 8, cmp);
+    ktree_insert(&rt, &c0.tree, 8, cmp);
+    ktree_insert(&rt, &c2.tree, 8, cmp);
     ktree_insert(&rt, &c3.tree, 8, cmp);
     ktree_insert(&rt, &c5.tree, 8, cmp);
-    
-    // TODO: Test ktree (new) implementation
 
-    ktree_remove(&rt, &c4.tree, 8, cmp);
-    ktree_remove(&rt, &c5.tree, 8, cmp);
+    ktree_remove(&rt, &c1.tree, 8, cmp);
 
     vga_printf(&fb, "Still alive\n");
 
