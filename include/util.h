@@ -21,6 +21,8 @@ struct ktree_node
 
 void bzero(u8 *mem, u64 size);
 
+bool ktree_empty(struct ktree *root);
+
 void ktree_insert(struct ktree *root, struct ktree_node *node, 
                   int off, int (*cmp)(void*, void*));
 
@@ -29,3 +31,7 @@ void ktree_remove(struct ktree *root, struct ktree_node *node,
 
 bool ktree_contains(struct ktree *root, void *val, 
                     int off, int (*cmp)(void*, void*));
+
+bool ktree_find(struct ktree *root, void *val, 
+                    int off, int (*cmp)(void*, void*), 
+                    struct ktree_node **res);
