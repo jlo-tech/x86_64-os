@@ -35,6 +35,11 @@ struct container c3 = {.data = 3, .tree = {.valid = {0, 0}}};
 struct container c4 = {.data = 4, .tree = {.valid = {0, 0}}};
 struct container c5 = {.data = 5, .tree = {.valid = {0, 0}}};
 
+struct klist rl;
+struct klist_node ln0;
+struct klist_node ln1;
+struct klist_node ln2;
+
 void kmain(struct multiboot_information *mb_info)
 {
     // Setup identity page mapping
@@ -82,6 +87,15 @@ void kmain(struct multiboot_information *mb_info)
 
     u64 x = 4;
     vga_printf(&fb, "%d \n", ktree_contains(&rt, &x, 8, cmp));
+
+    // Test klist...
+    klist_push(&rl, &ln0);
+    klist_push(&rl, &ln1);
+    klist_push(&rl, &ln2);
+    
+    klist_pop(&rl, &ln1);
+    klist_pop(&rl, &ln0);
+    klist_pop(&rl, &ln2);
 
     vga_printf(&fb, "Still alive\n");
 

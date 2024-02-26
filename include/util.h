@@ -35,3 +35,19 @@ bool ktree_contains(struct ktree *root, void *val,
 bool ktree_find(struct ktree *root, void *val, 
                     int off, int (*cmp)(void*, void*), 
                     struct ktree_node **res);
+
+struct klist
+{
+    bool valid;
+    struct klist_node *root;
+};
+
+struct klist_node
+{
+    bool valid;
+    struct klist_node *next;
+};
+
+bool klist_empty(struct klist *root);
+void klist_push(struct klist *root, struct klist_node *node);
+void klist_pop(struct klist *root, struct klist_node *node);

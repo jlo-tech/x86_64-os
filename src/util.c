@@ -312,3 +312,68 @@ bool ktree_find(struct ktree *root, void *val, int off, int (*cmp)(void*, void*)
         }
     }
 }
+
+bool klist_empty(struct klist *root)
+{
+    return !root->valid;
+}
+
+void klist_push(struct klist *root, struct klist_node *node)
+{
+    if(root->valid)
+    {
+        node->next = root->root;
+        node->valid = true;
+        root->root = node;
+    }
+    else
+    {
+        root->valid = true;
+        root->root = node;
+    }
+}
+
+void klist_pop(struct klist *root, struct klist_node *node)
+{
+    if(!root->valid)
+    {
+        // List is empty
+        return;
+    }
+    else
+    {
+        if(root->root == node)
+        {
+            // Delete root node
+            root->valid = root->root->valid;
+            root->root = root->root->next;
+        }
+        else
+        {
+            //Traverse list
+            struct klist_node *curr = root->root;
+            
+            do {
+                if(curr->valid)
+                {
+                    if(curr->next == node)
+                    {
+                        // Delete node
+                        curr->valid = curr->next->valid;
+                        curr->next = curr->next->next;
+                        return;
+                    }
+                    else
+                    {
+                        curr = curr->next;
+                    }
+                }
+                else
+                {
+                    // That was the last node
+                    return;
+                }
+            } while(1);
+        }
+    }
+}
