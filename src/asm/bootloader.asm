@@ -162,7 +162,7 @@ section .bss
 
 ; stack space
 align 4096
-resb 4096
+resb 16384
 kernel_stack:
 
 ; identity mapping for whole virtual address space

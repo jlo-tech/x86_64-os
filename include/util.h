@@ -11,7 +11,7 @@ struct ktree
 {
     bool valid;
     struct ktree_node *root;
-};
+} __attribute__((packed));
 
 struct ktree_node
 {
@@ -42,13 +42,13 @@ struct klist
 {
     bool valid;
     struct klist_node *root;
-};
+} __attribute__((packed));
 
 struct klist_node
 {
     bool valid;
     struct klist_node *next;
-};
+} __attribute__((packed));
 
 bool klist_empty(struct klist *root);
 void klist_push(struct klist *root, struct klist_node *node);
