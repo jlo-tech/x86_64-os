@@ -40,6 +40,8 @@ struct klist_node ln0;
 struct klist_node ln1;
 struct klist_node ln2;
 
+struct kheap heap;
+
 void kmain(struct multiboot_information *mb_info)
 {
     // Setup identity page mapping
@@ -67,6 +69,16 @@ void kmain(struct multiboot_information *mb_info)
         u64 eaddr = (u64)entry->address;
         u64 elen  = (u64)entry->length;
         vga_printf(&fb, "Type: %d, Addr: %d, Len: %d\n", etype, eaddr, elen);
+
+        // Insert some memory chunk
+        if(i == 0)
+        {
+            struct kchunk *kc = (struct kchunk*)0;
+            bzero((void*)kc, sizeof(struct kchunk));
+            kc->addr = 0;
+            kc->size = 16;
+            klist_push(&heap.free_buddies[4], &kc->list_handle);
+        }
     }
 
     intr_setup();
@@ -96,6 +108,13 @@ void kmain(struct multiboot_information *mb_info)
     klist_pop(&rl, &ln1);
     klist_pop(&rl, &ln0);
     klist_pop(&rl, &ln2);
+
+    // TODO: Test kheap_alloc() -> seems to work
+    // TODO: Do tests with kheap_free()
+    void *ptr0 = kheap_alloc(&heap, 4096);
+    void *ptr1 = kheap_alloc(&heap, 4096);
+    void *ptr2 = kheap_alloc(&heap, 4096);
+    void *ptr3 = kheap_alloc(&heap, 2048);
 
     vga_printf(&fb, "Still alive\n");
 
