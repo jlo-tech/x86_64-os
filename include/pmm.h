@@ -12,8 +12,8 @@
 /* Allocator management structure */
 struct kheap
 {
-   struct ktree used_buddies; // Sortex by addr
-   struct klist free_buddies[48]; // Sorted by size
+   struct ktree used_buddies;     // Sortex by addr
+   struct ktree free_buddies[48]; // Sorted by size
 };
 
 /* Structure sitting at top of each chunk */
@@ -22,11 +22,10 @@ struct kchunk
    i64 addr;
    i64 size; // In number of pages
    struct ktree_node tree_handle;
-   struct klist_node list_handle;
 } __attribute__((packed));
 
 /* Note: It is assumed that the effective part of an addresses is < 64bit */
 
 void kheap_init(struct kheap *heap);
 i64 kheap_alloc(struct kheap *heap, i64 size);
-i64 kheap_free(i64 addr);
+i64 kheap_free(struct kheap *heap, i64 addr);

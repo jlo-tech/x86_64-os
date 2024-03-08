@@ -41,6 +41,7 @@ struct klist_node ln1;
 struct klist_node ln2;
 
 struct kheap heap;
+extern int cmp_chunks(struct kchunk *c0, struct kchunk* c1);
 
 void kmain(struct multiboot_information *mb_info)
 {
@@ -53,6 +54,9 @@ void kmain(struct multiboot_information *mb_info)
 
     vga_clear(&fb);
     vga_printf(&fb, "Kernel at your service!\n");
+
+    // Init heap
+    kheap_init(&heap);
 
     vga_printf(&fb, "Multiboot info struct: %u\n", (u64)mb_info);
     vga_printf(&fb, "Multiboot memory map: %u\n", (u64)multiboot_memmap(mb_info));
@@ -73,11 +77,12 @@ void kmain(struct multiboot_information *mb_info)
         // Insert some memory chunk
         if(i == 0)
         {
+            // NOTE: When adding chunk it must be correctly aligned to a even multiple of PAGE_SIZE
             struct kchunk *kc = (struct kchunk*)0;
             bzero((void*)kc, sizeof(struct kchunk));
             kc->addr = 0;
             kc->size = 16;
-            klist_push(&heap.free_buddies[4], &kc->list_handle);
+            ktree_insert(&heap.free_buddies[4], &kc->tree_handle, OFFSET(struct kchunk, tree_handle), (int (*)(void*, void*))cmp_chunks);
         }
     }
 
@@ -109,14 +114,16 @@ void kmain(struct multiboot_information *mb_info)
     klist_pop(&rl, &ln0);
     klist_pop(&rl, &ln2);
 
-    // TODO: Test kheap_alloc() -> seems to work
-    // TODO: Do tests with kheap_free()
-    void *ptr0 = kheap_alloc(&heap, 4096);
-    void *ptr1 = kheap_alloc(&heap, 4096);
-    void *ptr2 = kheap_alloc(&heap, 4096);
-    void *ptr3 = kheap_alloc(&heap, 2048);
+    // TODO: More tests of kheap_free()
+    // TODO: Combi test of malloc and free
+    i64 ptr0 = kheap_alloc(&heap, 4096);
+    i64 ptr1 = kheap_alloc(&heap, 4096);
+    i64 ptr2 = kheap_alloc(&heap, 4096);
+    i64 ptr3 = kheap_alloc(&heap, 2048);
 
-    vga_printf(&fb, "Still alive\n");
+    kheap_free(&heap, ptr0);
+
+    vga_printf(&fb, "Still alive!\n");
 
     // Wait for interrupts
     __asm__ volatile("hlt");

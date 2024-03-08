@@ -5,6 +5,7 @@
 #define KTREE_LEFT  0
 #define KTREE_RIGHT 1
 
+#define OFFSET(type, member) ((i64)&(((type*)0)->member))
 #define ENCLAVE(type, member, ptr) (type*)(((void*)ptr) - (void*)(&((type*)0)->member))
 
 struct ktree

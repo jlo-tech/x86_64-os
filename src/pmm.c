@@ -42,7 +42,7 @@ static bool __p2(i64 x)
     return (x != 0) && ((x & (x - 1)) == 0);
 }
 
-static int cmp_chunks(struct kchunk *c0, struct kchunk* c1)
+int cmp_chunks(struct kchunk *c0, struct kchunk* c1)
 {
     if(c0->addr < c1->addr)
     {
@@ -92,7 +92,7 @@ i64 kheap_alloc(struct kheap *heap, i64 size)
 
     // Get index in free buddy array
     i64 index = 63 - __builtin_clzll((u64)chunk_size_in_pages);
-    if(klist_empty(&heap->free_buddies[index]))
+    if(ktree_empty(&heap->free_buddies[index]))
     {
         int i = index;
         while(i < 48) 
@@ -104,7 +104,7 @@ i64 kheap_alloc(struct kheap *heap, i64 size)
             }
             else
             {
-                if(klist_empty(&heap->free_buddies[i]))
+                if(ktree_empty(&heap->free_buddies[i]))
                 {
                     i++;
                 }
@@ -119,10 +119,13 @@ i64 kheap_alloc(struct kheap *heap, i64 size)
         for(i64 j = i; j > index; j--)
         {
             // Save old "big" chunk
-            struct kchunk rc = *ENCLAVE(struct kchunk, list_handle, heap->free_buddies[j].root);
+            struct kchunk rc = *ENCLAVE(struct kchunk, tree_handle, heap->free_buddies[j].root);
 
             // Remove old "big" chunk
-            klist_pop(&heap->free_buddies[j], heap->free_buddies[j].root);
+            ktree_remove(&heap->free_buddies[j], 
+                        heap->free_buddies[j].root, 
+                        OFFSET(struct kchunk, tree_handle), 
+                        (int (*)(void*, void*))cmp_chunks);
 
             // Split bigger chunk
             struct kchunk *nc0;
@@ -130,26 +133,132 @@ i64 kheap_alloc(struct kheap *heap, i64 size)
             split_chunk(rc, &nc0, &nc1);
 
             // Add new chunks to smaller list
-            klist_push(&heap->free_buddies[j-1], &nc0->list_handle);
-            klist_push(&heap->free_buddies[j-1], &nc1->list_handle);
+            ktree_insert(&heap->free_buddies[j-1], &nc0->tree_handle, 
+                        OFFSET(struct kchunk, tree_handle), (int (*)(void*, void*))cmp_chunks);
+
+            ktree_insert(&heap->free_buddies[j-1], &nc1->tree_handle, 
+                        OFFSET(struct kchunk, tree_handle), (int (*)(void*, void*))cmp_chunks);
         }
     }
 
     // Get actual chunk
-    struct kchunk *chunk = ENCLAVE(struct kchunk, list_handle, heap->free_buddies[index].root);
+    struct kchunk *chunk = ENCLAVE(struct kchunk, tree_handle, heap->free_buddies[index].root);
 
     // Remove chunk from free list
-    klist_pop(&heap->free_buddies[index], heap->free_buddies[index].root);
-    
+    ktree_remove(&heap->free_buddies[index], 
+                &chunk->tree_handle,
+                OFFSET(struct kchunk, tree_handle), 
+                (int (*)(void*, void*))cmp_chunks);
+
+    // Remove old and invalid tree information
+    bzero((void*)&chunk->tree_handle, sizeof(struct ktree_node));
+
     // Insert in used (but now by address)
-    ktree_insert(&heap->used_buddies, &chunk->tree_handle, (i64)&(((struct kchunk*)0)->tree_handle), (int (*)(void*, void*))cmp_chunks);
+    ktree_insert(&heap->used_buddies, 
+                &chunk->tree_handle, 
+                OFFSET(struct kchunk, tree_handle), 
+                (int (*)(void*, void*))cmp_chunks);
 
     // Return address
     return (chunk->addr + sizeof(struct kchunk));
 }
 
-i64 kheap_free(i64 addr)
-{
-    // TODO
-    return -1;
+i64 kheap_free(struct kheap *heap, i64 addr)
+{   
+    // Query struct
+    struct kchunk query;
+    bzero((void*)&query, sizeof(struct kchunk));
+    query.addr = addr - sizeof(struct kchunk); // Get original chunk address
+
+    // Load chunk from tree
+    struct kchunk *freed;
+    struct ktree_node **sr = NULL;
+
+    if(!ktree_find(&heap->used_buddies, &query, 
+        OFFSET(struct kchunk, tree_handle),
+        (int (*)(void*, void*))cmp_chunks,
+        sr))
+    {
+        return -1; // Error chunk not found
+    }
+
+    // Get kchunk for search result
+    freed = ENCLAVE(struct kchunk, tree_handle, *sr);
+
+    // Index in free_buddies array
+    i64 index = 63 - __builtin_clzll((u64)freed->size);
+
+    // Remove chunk from used
+    ktree_remove(&heap->used_buddies, 
+                &freed->tree_handle, 
+                OFFSET(struct kchunk, tree_handle),
+                (int (*)(void*, void*))cmp_chunks);
+    
+    // Insert into free
+    ktree_insert(&heap->free_buddies[index], 
+                &freed->tree_handle, 
+                OFFSET(struct kchunk, tree_handle),
+                (int (*)(void*, void*))cmp_chunks);
+
+    while(1) 
+    {
+        // Determine left or right buddy
+        bool odd = (freed->addr / PAGE_SIZE) & 1;
+
+        // Check for buddy
+        i64 buddy_addr = odd ? 
+            (freed->addr - freed->size) : 
+            (freed->addr + freed->size);
+
+        // Query buddy chunk
+        struct kchunk *buddy;
+        query.addr = buddy_addr;
+        if(!ktree_find(&heap->free_buddies[index], &query, 
+                OFFSET(struct kchunk, tree_handle), 
+                (int (*)(void*, void*))cmp_chunks, 
+                sr))
+        {
+            // No merging, just return
+            return 0;
+        }
+        else
+        {
+            // Else merge buddies
+
+            // Load buddy for search result
+            buddy = ENCLAVE(struct kchunk, tree_handle, *sr);
+         
+            // Remove both from free
+            ktree_remove(&heap->free_buddies[index], 
+                &buddy->tree_handle, 
+                OFFSET(struct kchunk, tree_handle),
+                (int (*)(void*, void*))cmp_chunks);
+
+            ktree_remove(&heap->free_buddies[index], 
+                &freed->tree_handle, 
+                OFFSET(struct kchunk, tree_handle),
+                (int (*)(void*, void*))cmp_chunks);
+
+            // Construct new chunk from both buddies to insert
+            if(odd) {
+
+                freed = (struct kchunk*)buddy_addr;
+                freed->addr = buddy_addr;
+            }
+            freed->size <<= 1;
+
+            // Go to next bigger slot
+            index++;
+
+            // Insert new chunk into (bigger) free slot
+            ktree_insert(&heap->free_buddies[index],
+                &freed->tree_handle,
+                OFFSET(struct kchunk, tree_handle),
+                (int (*)(void*, void*))cmp_chunks);
+
+            // Start off another iteration to merge (potenitally) more chunks
+        }
+    }
+
+    return 0;
 }
