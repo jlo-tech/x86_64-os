@@ -122,6 +122,11 @@ void kmain(struct multiboot_information *mb_info)
     i64 ptr3 = kheap_alloc(&heap, 2048);
 
     kheap_free(&heap, ptr0);
+    kheap_free(&heap, ptr1);
+    kheap_free(&heap, ptr2);
+    kheap_free(&heap, ptr3);
+
+    // Memory allocator seems to work fine, but do further tests...
 
     vga_printf(&fb, "Still alive!\n");
 

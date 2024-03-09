@@ -172,18 +172,18 @@ i64 kheap_free(struct kheap *heap, i64 addr)
 
     // Load chunk from tree
     struct kchunk *freed;
-    struct ktree_node **sr = NULL;
+    struct ktree_node *sr = NULL;
 
     if(!ktree_find(&heap->used_buddies, &query, 
         OFFSET(struct kchunk, tree_handle),
         (int (*)(void*, void*))cmp_chunks,
-        sr))
+        &sr))
     {
         return -1; // Error chunk not found
     }
 
     // Get kchunk for search result
-    freed = ENCLAVE(struct kchunk, tree_handle, *sr);
+    freed = ENCLAVE(struct kchunk, tree_handle, sr);
 
     // Index in free_buddies array
     i64 index = 63 - __builtin_clzll((u64)freed->size);
@@ -194,6 +194,8 @@ i64 kheap_free(struct kheap *heap, i64 addr)
                 OFFSET(struct kchunk, tree_handle),
                 (int (*)(void*, void*))cmp_chunks);
     
+    bzero((void*)&freed->tree_handle, sizeof(struct ktree_node));
+
     // Insert into free
     ktree_insert(&heap->free_buddies[index], 
                 &freed->tree_handle, 
@@ -203,12 +205,12 @@ i64 kheap_free(struct kheap *heap, i64 addr)
     while(1) 
     {
         // Determine left or right buddy
-        bool odd = (freed->addr / PAGE_SIZE) & 1;
+        bool odd = (freed->addr / (freed->size * PAGE_SIZE)) & 1;
 
         // Check for buddy
         i64 buddy_addr = odd ? 
-            (freed->addr - freed->size) : 
-            (freed->addr + freed->size);
+            (freed->addr - freed->size * PAGE_SIZE) : 
+            (freed->addr + freed->size * PAGE_SIZE);
 
         // Query buddy chunk
         struct kchunk *buddy;
@@ -216,7 +218,7 @@ i64 kheap_free(struct kheap *heap, i64 addr)
         if(!ktree_find(&heap->free_buddies[index], &query, 
                 OFFSET(struct kchunk, tree_handle), 
                 (int (*)(void*, void*))cmp_chunks, 
-                sr))
+                &sr))
         {
             // No merging, just return
             return 0;
@@ -226,7 +228,7 @@ i64 kheap_free(struct kheap *heap, i64 addr)
             // Else merge buddies
 
             // Load buddy for search result
-            buddy = ENCLAVE(struct kchunk, tree_handle, *sr);
+            buddy = ENCLAVE(struct kchunk, tree_handle, sr);
          
             // Remove both from free
             ktree_remove(&heap->free_buddies[index], 
@@ -234,10 +236,14 @@ i64 kheap_free(struct kheap *heap, i64 addr)
                 OFFSET(struct kchunk, tree_handle),
                 (int (*)(void*, void*))cmp_chunks);
 
+            bzero((void*)&buddy->tree_handle, sizeof(struct ktree_node));
+
             ktree_remove(&heap->free_buddies[index], 
                 &freed->tree_handle, 
                 OFFSET(struct kchunk, tree_handle),
                 (int (*)(void*, void*))cmp_chunks);
+
+            bzero((void*)&freed->tree_handle, sizeof(struct ktree_node));
 
             // Construct new chunk from both buddies to insert
             if(odd) {
