@@ -89,9 +89,10 @@ isr_stub:
     save_context
     
     ; call c handler
-    mov rdi, rsp    ; pointer to saved vars
+    mov rdi, rsp          ; pointer to saved vars
+    mov rsi, [rsp+(15*8)] ; pass saved interrupt code
     call intr_handler
-    mov rsp, rax    ; restore saved context
+    mov rsp, rax          ; restore saved context
 
     ; restore context
     restore_context
