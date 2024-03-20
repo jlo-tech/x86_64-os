@@ -114,8 +114,6 @@ void kmain(struct multiboot_information *mb_info)
     klist_pop(&rl, &ln0);
     klist_pop(&rl, &ln2);
 
-    // TODO: More tests of kheap_free()
-    // TODO: Combi test of malloc and free
     i64 ptr0 = kheap_alloc(&heap, 4096);
     i64 ptr1 = kheap_alloc(&heap, 4096);
     i64 ptr2 = kheap_alloc(&heap, 4096);
@@ -125,8 +123,6 @@ void kmain(struct multiboot_information *mb_info)
     kheap_free(&heap, ptr1);
     kheap_free(&heap, ptr2);
     kheap_free(&heap, ptr3);
-
-    // Memory allocator seems to work fine, but do further tests...
 
     vga_printf(&fb, "Still alive!\n");
 
