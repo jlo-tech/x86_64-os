@@ -60,4 +60,16 @@ struct cpu_context
     u64 r15;
 };
 
+// Primary PIC
+#define PIC_PRI_CMD  0x20
+#define PIC_PRI_DATA 0x21
+// Secondary PIC
+#define PIC_SEC_CMD  0xA0
+#define PIC_SEC_DATA 0xA1
+
+void pic_init();
+u16  pic_get_mask();
+void pic_set_mask(u16 mask);
+void pic_eoi(u8 irq);
+
 struct cpu_context* intr_handler(struct cpu_context* saved_context, u64 code);

@@ -1,11 +1,12 @@
 #include <vga.h>
 #include <pmm.h>
 #include <vmm.h>
+#include <pit.h>
 #include <intr.h>
 
 #include <multiboot.h>
 
-static struct framebuffer fb;
+struct framebuffer fb;
 
 struct container
 {
@@ -86,8 +87,13 @@ void kmain(struct multiboot_information *mb_info)
         }
     }
 
+    // Enable local interrupts
     intr_setup();
     intr_enable();
+
+    // Enable external interrupts and start timer
+    pic_init();
+    pit_freq(-1); // Max sleep time
 
     vga_printf(&fb, "Still alive!\n");
 
@@ -127,5 +133,8 @@ void kmain(struct multiboot_information *mb_info)
     vga_printf(&fb, "Still alive!\n");
 
     // Wait for interrupts
-    __asm__ volatile("hlt");
+    while(1) 
+    {
+        __asm__ volatile("hlt");
+    }
 }

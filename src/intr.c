@@ -1,3 +1,4 @@
+#include <io.h>
 #include <intr.h>
 
 #define BIT16_MASK 0xffff
@@ -303,12 +304,72 @@ void intr_setup()
     idt_register(&idtr);
 }
 
+void pic_init()
+{
+    u8 icw1  = (1 << 4) | 1; // Initialize & IC4
+    u8 icw2p = 0x20;         // Offset for interruipts
+    u8 icw2s = 0x28;         // Offset for interruipts
+    u8 icw3p = 0x4;
+    u8 icw3s = 0x2;
+    u8 icw4  = 0x1;
+
+    // Start init
+    outb(PIC_PRI_CMD, icw1);
+    outb(PIC_SEC_CMD, icw1);
+
+    // Send ICWs...
+    outb(PIC_PRI_DATA, icw2p);
+    outb(PIC_SEC_DATA, icw2s);
+
+    outb(PIC_PRI_DATA, icw3p);
+    outb(PIC_SEC_DATA, icw3s);
+
+    outb(PIC_PRI_DATA, icw4);
+    outb(PIC_SEC_DATA, icw4);
+
+    // Null data regs
+    outb(PIC_PRI_DATA, 0);
+    outb(PIC_SEC_DATA, 0);
+}
+
+u16 pic_get_mask()
+{
+    u16 u = (u16)inb(PIC_SEC_DATA);
+    u16 l = (u16)inb(PIC_PRI_DATA);
+    return  (u << 8) | l;
+}
+
+void pic_set_mask(u16 mask)
+{
+    u8 u = (mask >> 8) & 0xff;
+    u8 l = (mask >> 0) & 0xff;
+
+    outb(PIC_PRI_DATA, l);
+    outb(PIC_SEC_DATA, u);
+}
+
+void pic_eoi(u8 irq)
+{
+    if(irq < 8)
+        outb(PIC_PRI_CMD, 0x20);
+
+    outb(PIC_SEC_CMD, 0x20);
+}
+
+extern struct framebuffer fb;
+
 /*
  * context: saved cpu context
  * code: number of interrupt/exception
 */
 struct cpu_context* intr_handler(struct cpu_context* saved_context, u64 code)
 {
+    static int inv = 0;
+
+    vga_printf(&fb, "[%d] Interrupt [%d]\n", inv++, code);
+
+    if(code == 0x20)
+        pic_eoi(0);
 
     return saved_context;
 }
