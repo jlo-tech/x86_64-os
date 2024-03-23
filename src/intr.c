@@ -364,12 +364,24 @@ extern struct framebuffer fb;
 */
 struct cpu_context* intr_handler(struct cpu_context* saved_context, u64 code)
 {
-    static int inv = 0;
-
-    vga_printf(&fb, "[%d] Interrupt [%d]\n", inv++, code);
+    //static int inv = 0;
+    //vga_printf(&fb, "[%d] Interrupt [%d]\n", inv++, code);
 
     if(code == 0x20)
+    {
         pic_eoi(0);
+    }
+
+    if(code == 0x21)
+    {
+        keyboard_handle_keypress();
+
+        u8 buf[128] = {0};
+        keyboard_data(buf, 4);
+        vga_printf(&fb, "Buf: %s\n", buf);
+        
+        pic_eoi(1);
+    }
 
     return saved_context;
 }

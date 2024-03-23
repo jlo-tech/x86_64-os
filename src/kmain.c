@@ -91,8 +91,10 @@ void kmain(struct multiboot_information *mb_info)
     intr_setup();
     intr_enable();
 
-    // Enable external interrupts and start timer
+    // Enable external interrupts
     pic_init();
+    
+    // Configure timer
     pit_freq(-1); // Max sleep time
 
     vga_printf(&fb, "Still alive!\n");
