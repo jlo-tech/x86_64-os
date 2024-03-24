@@ -2,6 +2,7 @@
 #include <pmm.h>
 #include <vmm.h>
 #include <pit.h>
+#include <pci.h>
 #include <intr.h>
 
 #include <multiboot.h>
@@ -133,6 +134,11 @@ void kmain(struct multiboot_information *mb_info)
     kheap_free(&heap, ptr3);
 
     vga_printf(&fb, "Still alive!\n");
+
+    pci_dev_t pci_dev;
+    pci_device_info(&pci_dev, 0, 0, 0);
+
+    vga_printf(&fb, "%h\n", pci_dev.vendor_id);
 
     // Wait for interrupts
     while(1) 

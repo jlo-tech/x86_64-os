@@ -1,5 +1,6 @@
 #pragma once
 
+#include <io.h>
 #include <types.h>
 
 #define PIT_CMD 0x43

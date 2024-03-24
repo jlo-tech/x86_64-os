@@ -1,7 +1,9 @@
 #pragma once
 
 #include <isr.h>
+#include <vga.h>
 #include <util.h>
+#include <keyboard.h>
 
 #define IDT_INT_GATE    (0b1110 << 8)  // Disables interrupts on handler entry
 #define IDT_TRAP_GATE   (0b1111 << 8)  // Allows interrupts during handler running

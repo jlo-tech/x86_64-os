@@ -28,7 +28,7 @@ unsigned char kbmap[128] =
     '\'', '`', 0,	/* Left shift */
     '\\', 
     'z', 'x', 'c', 'v', 'b', 'n',
-  ' m', ',', '.', '/',   
+    'm', ',', '.', '/',   
     0,				/* Right shift */
     '*',
     0,	 /* Alt */
@@ -172,7 +172,7 @@ bool keyboard_ctrl()
     return ctrl_pressed;
 }
 
-void keyboard_data(u8 *buf, u64 max_size)
+void keyboard_data(u8 *buf, i64 max_size)
 {
     u64 read_size = (max_size < keyboard_count()) ? max_size : keyboard_count();
 
