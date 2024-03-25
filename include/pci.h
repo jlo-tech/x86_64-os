@@ -11,6 +11,10 @@
 
 typedef struct
 {
+    u8 bus;
+    u8 dev;
+    u8 fun;
+
     u16 vendor_id;
     u16 device_id;
 

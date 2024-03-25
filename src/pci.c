@@ -27,6 +27,12 @@ static u32 pci_addr(u8 bus, u8 dev, u8 fun, u8 reg)
 // Loads fields of configuration space, header type specific fields are omitted
 void pci_device_info(pci_dev_t *pci_dev, u8 bus, u8 dev, u8 fun)
 {
+    // To identify device later
+    pci_dev->bus = bus;
+    pci_dev->dev = dev;
+    pci_dev->fun = fun;
+
+    // Generic data holder
     u32 t;
 
     // Cleanup
@@ -147,9 +153,48 @@ void pci_device_info(pci_dev_t *pci_dev, u8 bus, u8 dev, u8 fun)
         pci_dev->bridge.interrupt_pin = (t >> 8) & 0xFF;
         pci_dev->bridge.bridge_control = (t >> 16) & 0xFFFF;
     }
+    else
+    {
+        // Cardbus (currently not supported) or reserved
+        return;
+    }
 }
 
 bool pci_device_ready(pci_dev_t *dev)
 {
     return dev->vendor_id != PCI_INVALID;
+}
+
+// Is BAR refering to IO space
+bool pci_bar_io(u32 bar)
+{
+    return ((bar & 1) == 1) ? true : false;
+}
+
+// Is BAR refering to memory space
+bool pci_bar_memory(u32 bar)
+{
+    return ((bar & 1) == 0) ? true : false;
+}
+
+// Size of bar (e.g. false = 32 bit vs true = 64 bit)
+bool pci_bar_space(u32 bar)
+{
+    if((bar & 0x6) == 0)
+    {
+        return false;
+    }
+    else if((bar & 0x06) == 2)
+    {
+        return true;
+    }
+
+    // Error reserved value
+    return false;
+}
+
+// Are accesses prefetchable
+bool pci_bar_prefetchable(u32 bar)
+{
+    return (bar >> 3) & 1;
 }
