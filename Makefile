@@ -23,10 +23,10 @@ iso: kernel
 	@grub-mkrescue -o os.iso iso
 
 run: iso
-	@$(QEMU) -cdrom os.iso -m 4G
+	@$(QEMU) -cdrom os.iso -m 4G -device virtio-net
 
 debug:
-	@$(QEMU) -s -S -cdrom os.iso -m 4G
+	@$(QEMU) -s -S -cdrom os.iso -m 4G -device virtio-net
 
 clean:
 	@rm -r src/asm/*.o

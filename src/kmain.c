@@ -135,6 +135,8 @@ void kmain(struct multiboot_information *mb_info)
 
     vga_printf(&fb, "Still alive!\n");
 
+    vga_clear();
+
     pci_scan();
 
     // Wait for interrupts
