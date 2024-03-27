@@ -1,200 +1,158 @@
 #include <pci.h>
 
-static u16 pci_read(u32 addr)
+/* Note:
+    In all pci_read_xxx/pci_write_xxx methods
+    REG needs to be aligned to a 4 byte boundary
+*/
+
+u32 pci_read_dword(pci_dev_t *pci_dev, u8 reg)
 {
+    u32 pbus = ((u32)pci_dev->bus) << 16;
+    u32 pdev = ((u32)pci_dev->dev) << 11;
+    u32 pfun = ((u32)pci_dev->fun) << 8;
+    u32 preg = ((u32)reg) << 0;
+
+    u32 addr = ((u32)0x80000000) | pbus | pdev | pfun | preg;
+
     outd(PCI_ADDR, addr);
+    
     return ind(PCI_DATA);
 }
 
-static void pci_write(u32 addr, u16 val)
+u16 pci_read_word(pci_dev_t *pci_dev, u8 reg)
 {
+    u32 pbus = ((u32)pci_dev->bus) << 16;
+    u32 pdev = ((u32)pci_dev->dev) << 11;
+    u32 pfun = ((u32)pci_dev->fun) << 8;
+    u32 preg = ((u32)reg) << 0;
+
+    u32 addr = ((u32)0x80000000) | pbus | pdev | pfun | preg;
+
+    outd(PCI_ADDR, addr);
+    
+    return inw(PCI_DATA);
+}
+
+u8 pci_read_byte(pci_dev_t *pci_dev, u8 reg)
+{
+    u32 pbus = ((u32)pci_dev->bus) << 16;
+    u32 pdev = ((u32)pci_dev->dev) << 11;
+    u32 pfun = ((u32)pci_dev->fun) << 8;
+    u32 preg = ((u32)reg) << 0;
+
+    u32 addr = ((u32)0x80000000) | pbus | pdev | pfun | preg;
+
+    outd(PCI_ADDR, addr);
+    
+    return inb(PCI_DATA);
+}
+
+void pci_write_dword(pci_dev_t *pci_dev, u8 reg, u32 val)
+{
+    u32 pbus = ((u32)pci_dev->bus) << 16;
+    u32 pdev = ((u32)pci_dev->dev) << 11;
+    u32 pfun = ((u32)pci_dev->fun) << 8;
+    u32 preg = ((u32)reg) << 0;
+
+    u32 addr = ((u32)0x80000000) | pbus | pdev | pfun | preg;
+
     outd(PCI_ADDR, addr);
     outd(PCI_DATA, val);
 }
 
-static u32 pci_addr(u8 bus, u8 dev, u8 fun, u8 reg)
+void pci_write_word(pci_dev_t *pci_dev, u8 reg, u16 val)
 {
-    u32 pbus = ((((u32)bus) & 0xFF) << 16);
-    u32 pdev = ((((u32)dev) & 0x1F) << 11);
-    u32 pfun = ((((u32)fun) & 0x07) << 8);
-    u32 preg = ((((u32)reg) & 0xFC) << 0);
+    u32 pbus = ((u32)pci_dev->bus) << 16;
+    u32 pdev = ((u32)pci_dev->dev) << 11;
+    u32 pfun = ((u32)pci_dev->fun) << 8;
+    u32 preg = ((u32)reg) << 0;
 
     u32 addr = ((u32)0x80000000) | pbus | pdev | pfun | preg;
 
-    return addr;
+    outd(PCI_ADDR, addr);
+    outw(PCI_DATA, val);
 }
 
-// Loads fields of configuration space, header type specific fields are omitted
-void pci_device_info(pci_dev_t *pci_dev, u8 bus, u8 dev, u8 fun)
+void pci_write_byte(pci_dev_t *pci_dev, u8 reg, u8 val)
 {
-    // To identify device later
-    pci_dev->bus = bus;
-    pci_dev->dev = dev;
-    pci_dev->fun = fun;
+    u32 pbus = ((u32)pci_dev->bus) << 16;
+    u32 pdev = ((u32)pci_dev->dev) << 11;
+    u32 pfun = ((u32)pci_dev->fun) << 8;
+    u32 preg = ((u32)reg) << 0;
 
-    // Generic data holder
-    u32 t;
+    u32 addr = ((u32)0x80000000) | pbus | pdev | pfun | preg;
 
-    // Cleanup
-    bzero((u8*)pci_dev, sizeof(pci_dev_t));
+    outd(PCI_ADDR, addr);
+    outb(PCI_DATA, val);
+}
 
-    // Load vendor id
-    t = pci_read(pci_addr(bus, dev, fun, 0x0));
+u16 pci_vendor_id(pci_dev_t *pci_dev)
+{
+    return pci_read_word(pci_dev, 0x0);
+}
 
-    pci_dev->vendor_id = (t >> 0) & 0xFFFF;
-    pci_dev->device_id = (t >> 16) & 0xFFFF;
+u16 pci_device_id(pci_dev_t *pci_dev)
+{
+    return pci_read_dword(pci_dev, 0x0) >> 16;
+}
 
-    // Check if device is plugged in
-    if(pci_dev->vendor_id == PCI_INVALID)
-        return;
+u8 pci_revision_id(pci_dev_t *pci_dev)
+{
+    return pci_read_byte(pci_dev, 0x8);
+}
 
-    t = pci_read(pci_addr(bus, dev, fun, 0x4));
+u8 pci_class_code(pci_dev_t *pci_dev)
+{
+    return (pci_read_dword(pci_dev, 0x8) >> 24) & 0xFF;
+}
 
-    pci_dev->command = (t >> 0) & 0xFFFF;
-    pci_dev->status = (t >> 16) & 0xFFFF;
+u8 pci_subclass_code(pci_dev_t *pci_dev)
+{
+    return (pci_read_dword(pci_dev, 0x8) >> 16) & 0xFF;
+}
 
-    t = pci_read(pci_addr(bus, dev, fun, 0x8));
+u8 pci_programming_interface(pci_dev_t *pci_dev)
+{
+    return (pci_read_dword(pci_dev, 0x8) >> 8) & 0xFF;
+}
 
-    pci_dev->revision_id = (t >> 0) & 0xFF;
-    pci_dev->classcode = (t >> 8) & 0xFFFFFF;
-    
-    t = pci_read(pci_addr(bus, dev, fun, 0xC));
+u8 pci_header_type(pci_dev_t *pci_dev)
+{
+    return (pci_read_dword(pci_dev, 0xC) >> 16) & 0x7F;
+}
 
-    pci_dev->cache_line_size = (t >> 0) & 0xFF;
-    pci_dev->latency_timer = (t >> 8) & 0xFF;
-    pci_dev->header_type = (t >> 16) & 0xFF;
-    pci_dev->bist = (t >> 24) & 0xFF;
+// Is PCI device multi function?
+u8 pci_multi_function(pci_dev_t *pci_dev)
+{
+    return ((pci_read_dword(pci_dev, 0xC) >> 16) & 0x80) >> 7;
+}
 
-    // Standard device or PCI/PCI-bridge
-    if(pci_dev->header_type == 0x00)
+extern struct framebuffer fb;
+
+void pci_scan()
+{
+    vga_printf(&fb, "PCI Scan:\n");
+    for(u16 bus = 0; bus < 256; bus++)
     {
-        t = pci_read(pci_addr(bus, dev, fun, 0x10));
-        pci_dev->standard.bar0 = t;
+        for(u16 dev = 0; dev < 32; dev++)
+        {
+            for(u16 fun = 0; fun < 8; fun++)
+            {
+                pci_dev_t pdev = {.bus = bus, .fun = fun, .dev = dev};
+                u16 vid = pci_vendor_id(&pdev);
+                u16 did = pci_device_id(&pdev);
+                u8 cc = pci_class_code(&pdev);
+                u8 sc = pci_subclass_code(&pdev);
+                u8 pi = pci_programming_interface(&pdev);
+                u8 ht = pci_header_type(&pdev);
+                u8 mf = pci_multi_function(&pdev);
 
-        t = pci_read(pci_addr(bus, dev, fun, 0x14));
-        pci_dev->standard.bar1 = t;
-
-        t = pci_read(pci_addr(bus, dev, fun, 0x18));
-        pci_dev->standard.bar2 = t;
-        
-        t = pci_read(pci_addr(bus, dev, fun, 0x1C));
-        pci_dev->standard.bar3 = t;
-
-        t = pci_read(pci_addr(bus, dev, fun, 0x20));
-        pci_dev->standard.bar4 = t;
-
-        t = pci_read(pci_addr(bus, dev, fun, 0x24));
-        pci_dev->standard.bar5 = t;
-
-        t = pci_read(pci_addr(bus, dev, fun, 0x28));
-        pci_dev->standard.cardbus_cis_pointer = t;
-
-        t = pci_read(pci_addr(bus, dev, fun, 0x2c));
-        pci_dev->standard.subsystem_vendor_id = (t >> 0) & 0xFFFF;
-        pci_dev->standard.subsystem_id = (t >> 16) & 0xFFFF;
-
-        t = pci_read(pci_addr(bus, dev, fun, 0x30));
-        pci_dev->standard.expansion_rom_base_address = t;
-
-        t = pci_read(pci_addr(bus, dev, fun, 0x34));
-        pci_dev->standard.capabilities_pointer = t & 0xFF;
-
-        t = pci_read(pci_addr(bus, dev, fun, 0x3c));
-        pci_dev->standard.interrupt_line = (t >> 0) & 0xFF;
-        pci_dev->standard.interrupt_pin = (t >> 8) & 0xFF;
-        pci_dev->standard.min_grant = (t >> 16) & 0xFF;
-        pci_dev->standard.max_latency = (t >> 24) & 0xFF;
+                if((vid & 0xFFFF) != PCI_INVALID)
+                {
+                    u32 m = pci_read_dword(&pdev, 8);
+                    vga_printf(&fb, "VID: %h DID: %h CC: %h SC: %h PI: %h HT: %h MF %h\n", vid, did, cc, sc, pi, ht, mf);
+                }
+            }
+        }
     }
-    else if(pci_dev->header_type == 0x01)
-    {
-        t = pci_read(pci_addr(bus, dev, fun, 0x10));
-        pci_dev->bridge.bar0 = t;
-
-        t = pci_read(pci_addr(bus, dev, fun, 0x14));
-        pci_dev->bridge.bar1 = t;
-
-        t = pci_read(pci_addr(bus, dev, fun, 0x18));
-        pci_dev->bridge.primary_bus_no = (t >> 0) & 0xFF;
-        pci_dev->bridge.secondary_bus_no = (t >> 8) & 0xFF;
-        pci_dev->bridge.subordinate_bus_no = (t >> 16) & 0xFF;
-        pci_dev->bridge.secondary_latency_timer = (t >> 24) & 0xFF;
-
-        t = pci_read(pci_addr(bus, dev, fun, 0x1C));
-        pci_dev->bridge.io_base = (t >> 0) & 0xFF;
-        pci_dev->bridge.io_limit = (t >> 8) & 0xFF;
-        pci_dev->bridge.secondary_status = (t >> 16) & 0xFFFF;
-        
-        t = pci_read(pci_addr(bus, dev, fun, 0x20));
-        pci_dev->bridge.memory_base = (t >> 0) & 0xFFFF;
-        pci_dev->bridge.memory_limit = (t >> 16) & 0xFFFF;
-
-        t = pci_read(pci_addr(bus, dev, fun, 0x24));
-        pci_dev->bridge.prefetchable_memory_base = (t >> 0) & 0xFFFF;
-        pci_dev->bridge.prefetchable_memory_limit = (t >> 16) & 0xFFFF;
-
-        t = pci_read(pci_addr(bus, dev, fun, 0x28));
-        pci_dev->bridge.prefetchable_memory_base_upper = t;
-
-        t = pci_read(pci_addr(bus, dev, fun, 0x2C));
-        pci_dev->bridge.prefetchable_memory_limit_upper = t;
-
-        t = pci_read(pci_addr(bus, dev, fun, 0x30));
-        pci_dev->bridge.io_base_upper = (t >> 0) & 0xFFFF;
-        pci_dev->bridge.io_limit_upper = (t >> 16) & 0xFFFF;
-
-        t = pci_read(pci_addr(bus, dev, fun, 0x34));
-        pci_dev->bridge.capabilities_pointer = t & 0xFF;
-
-        t = pci_read(pci_addr(bus, dev, fun, 0x38));
-        pci_dev->bridge.extension_rom_base_address = t;
-
-        t = pci_read(pci_addr(bus, dev, fun, 0x3c));
-        pci_dev->bridge.interrupt_line = (t >> 0) & 0xFF;
-        pci_dev->bridge.interrupt_pin = (t >> 8) & 0xFF;
-        pci_dev->bridge.bridge_control = (t >> 16) & 0xFFFF;
-    }
-    else
-    {
-        // Cardbus (currently not supported) or reserved
-        return;
-    }
-}
-
-bool pci_device_ready(pci_dev_t *dev)
-{
-    return dev->vendor_id != PCI_INVALID;
-}
-
-// Is BAR refering to IO space
-bool pci_bar_io(u32 bar)
-{
-    return ((bar & 1) == 1) ? true : false;
-}
-
-// Is BAR refering to memory space
-bool pci_bar_memory(u32 bar)
-{
-    return ((bar & 1) == 0) ? true : false;
-}
-
-// Size of bar (e.g. false = 32 bit vs true = 64 bit)
-bool pci_bar_space(u32 bar)
-{
-    if((bar & 0x6) == 0)
-    {
-        return false;
-    }
-    else if((bar & 0x06) == 2)
-    {
-        return true;
-    }
-
-    // Error reserved value
-    return false;
-}
-
-// Are accesses prefetchable
-bool pci_bar_prefetchable(u32 bar)
-{
-    return (bar >> 3) & 1;
 }
