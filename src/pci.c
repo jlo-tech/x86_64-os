@@ -127,6 +127,7 @@ u8 pci_multi_function(pci_dev_t *pci_dev)
     return ((pci_read_dword(pci_dev, 0xC) >> 16) & 0x80) >> 7;
 }
 
+#include <vga.h>
 extern struct framebuffer fb;
 
 void pci_scan()
@@ -149,7 +150,6 @@ void pci_scan()
 
                 if((vid & 0xFFFF) != PCI_INVALID)
                 {
-                    u32 m = pci_read_dword(&pdev, 8);
                     vga_printf(&fb, "VID: %h DID: %h CC: %h SC: %h PI: %h HT: %h MF %h\n", vid, did, cc, sc, pi, ht, mf);
                 }
             }

@@ -1,8 +1,6 @@
 #pragma once
 
 #include <io.h>
-#include <vga.h>
-#include <util.h>
 #include <types.h>
 
 #define PCI_ADDR 0xCF8
