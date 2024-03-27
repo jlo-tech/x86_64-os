@@ -86,6 +86,11 @@ void pci_write_byte(pci_dev_t *pci_dev, u8 reg, u8 val)
     outb(PCI_DATA, val);
 }
 
+bool pci_ready(pci_dev_t *pci_dev)
+{
+    return (pci_read_word(pci_dev, 0x0) != (u16)PCI_INVALID);
+}
+
 u16 pci_vendor_id(pci_dev_t *pci_dev)
 {
     return pci_read_word(pci_dev, 0x0);
@@ -140,16 +145,17 @@ void pci_scan()
             for(u16 fun = 0; fun < 8; fun++)
             {
                 pci_dev_t pdev = {.bus = bus, .fun = fun, .dev = dev};
-                u16 vid = pci_vendor_id(&pdev);
-                u16 did = pci_device_id(&pdev);
-                u8 cc = pci_class_code(&pdev);
-                u8 sc = pci_subclass_code(&pdev);
-                u8 pi = pci_programming_interface(&pdev);
-                u8 ht = pci_header_type(&pdev);
-                u8 mf = pci_multi_function(&pdev);
 
-                if((vid & 0xFFFF) != PCI_INVALID)
+                if(pci_ready(&pdev))
                 {
+                    u16 vid = pci_vendor_id(&pdev);
+                    u16 did = pci_device_id(&pdev);
+                    u8 cc = pci_class_code(&pdev);
+                    u8 sc = pci_subclass_code(&pdev);
+                    u8 pi = pci_programming_interface(&pdev);
+                    u8 ht = pci_header_type(&pdev);
+                    u8 mf = pci_multi_function(&pdev);
+
                     vga_printf(&fb, "VID: %h DID: %h CC: %h SC: %h PI: %h HT: %h MF %h\n", vid, did, cc, sc, pi, ht, mf);
                 }
             }
