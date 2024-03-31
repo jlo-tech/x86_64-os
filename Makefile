@@ -23,10 +23,10 @@ iso: kernel
 	@grub-mkrescue -o os.iso iso
 
 run: iso
-	@$(QEMU) -cdrom os.iso -m 4G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk -d trace:pci_cfg_read -d trace:virtio_queue_notify
+	@$(QEMU) -cdrom os.iso -m 4G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk
 
 debug:
-	@$(QEMU) -s -S -cdrom os.iso -m 4G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk -d trace:pci_cfg_read -d trace:virtio_queue_notify 
+	@$(QEMU) -s -S -cdrom os.iso -m 4G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk
 
 clean:
 	@rm -r src/asm/*.o

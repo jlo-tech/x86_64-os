@@ -229,17 +229,16 @@ bool virtio_block_dev_init(pci_dev_t *virtio_dev)
     // Submit write to device
     struct virtio_block_req *blkreq = align(kmalloc(4096), 4096);
     blkreq->type = VIRTIO_BLK_T_OUT;
-    blkreq->ioprio = 1;
+    blkreq->ioprio = 0;
     blkreq->sector = 0;
 
     char *data = align(kmalloc(4096), 4096);
     data[0] = 1;
+    data[1] = 2;
 
     u8 *status = align(kmalloc(4096), 4096);
+    *status = 0xff;
     
-
-    //virtio_push_buffer(&vq, virtio_dev, (void*)&blkreq, sizeof(struct virtio_block_req));
-
     // Hardcoded virtq push
     vq.desc[0].addr = (u64)blkreq;
     vq.desc[0].len = 16;
@@ -275,8 +274,61 @@ bool virtio_block_dev_init(pci_dev_t *virtio_dev)
     // Notify device
     outw(iobase + VIRTIO_HEADER_QUEUE_NOTIFY, 0);
 
-    //while(blkreq->status == 0xff);
-    //vga_printf(&fb, "Status %h\n", blkreq.status);
+    while(*status == 0xff);
+
+    vga_printf(&fb, "Status: %h\n", *status);
+
+    // IOError code is due to conflicting sector sizes of guest and host (see https://bugzilla.redhat.com/show_bug.cgi?id=1738839)
+
+    // Read back //
+
+    struct virtio_block_req *blkin = align(kmalloc(4096), 4096);
+    blkin->type = VIRTIO_BLK_T_IN;
+    blkin->ioprio = 0;
+    blkin->sector = 0;
+
+    char *din = align(kmalloc(4096), 4096);
+
+    u8 *sin = align(kmalloc(4096), 4096);
+    *sin = 0xff;
+
+    vq.desc[3].addr = (u64)blkin;
+    vq.desc[3].len = 16;
+    vq.desc[3].flags = VRING_DESC_F_NEXT;
+    vq.desc[3].next = 4;
+
+    vq.desc[4].addr = (u64)din;
+    vq.desc[4].len = 512;
+    vq.desc[4].flags = VRING_DESC_F_NEXT | VRING_DESC_F_WRITE;
+    vq.desc[4].next = 5;
+
+    vq.desc[5].addr = (u64)sin;
+    vq.desc[5].len = 1;
+    vq.desc[5].flags = VRING_DESC_F_WRITE;
+    vq.desc[5].next = 0;
+
+    BARRIER
+
+    // Make buffer visible
+    vq.avail->ring[3] = 3;
+    vq.avail->ring[4] = 4;
+    vq.avail->ring[5] = 5;
+
+    // Mem sync
+    BARRIER
+
+    // Update index and make buffers visible
+    vq.avail->idx = 6;
+
+    // Mem sync
+    BARRIER
+
+    // Notify device
+    outw(iobase + VIRTIO_HEADER_QUEUE_NOTIFY, 0);
+
+    while(*status == 0xff);
+
+    vga_printf(&fb, "Data: %h %h\n", data[0], data[1]);
 
     return true;
 }
