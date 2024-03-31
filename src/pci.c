@@ -132,7 +132,7 @@ u8 pci_multi_function(pci_dev_t *pci_dev)
     return ((pci_read_dword(pci_dev, 0xC) >> 16) & 0x80) >> 7;
 }
 
-u8 pci_bar(pci_dev_t *pci_dev, u8 bar_index)
+u32 pci_bar(pci_dev_t *pci_dev, u8 bar_index)
 {
     u8 ht = pci_header_type(pci_dev);
     if((ht == 0x0 && bar_index > 5) || (ht == 1 && bar_index > 1))
@@ -242,14 +242,15 @@ void pci_scan()
                     u16 did = pci_device_id(&pdev);
                     u8 cc = pci_class_code(&pdev);
                     u8 sc = pci_subclass_code(&pdev);
+                    u8 bmt = pci_bar_mem_type(&pdev, 0);
+                    /*
                     u8 pi = pci_programming_interface(&pdev);
                     u8 ht = pci_header_type(&pdev);
                     u8 mf = pci_multi_function(&pdev);
-                    u8 bmt = pci_bar_mem_type(&pdev, 0);
                     u64 as = pci_bar_mem_addr_size(&pdev, 0);
                     u64 bs = pci_bar_addr_space(&pdev, 0);
-
-                    vga_printf(&fb, "VID: %h DID: %h CC: %h SC: %h PI: %h HT: %h BMT: %h MF: %h AS: %h BS: %h\n", vid, did, cc, sc, pi, ht, bmt, mf, as, bs);
+                    */
+                    vga_printf(&fb, "BUS: %h DEV: %h FUN: %h VID: %h DID: %h CC: %h\n", bus, dev, fun, vid, did, cc);
                 }
             }
         }

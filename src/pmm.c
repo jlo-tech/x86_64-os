@@ -13,10 +13,13 @@ static const u64 kernel_limit_addr = (u64)&kernel_limit;
  * Align address to a specific alignment
  * If addresses are not aligned they are rounded up 
  */
-static u64 align(u64 addr, u64 alignment)
+u64 align(u64 addr, u64 alignment)
 {
-    u64 masked = addr & (alignment - 1);
-    return (addr == masked) ? addr : (masked + alignment);
+    if((addr % alignment) == 0)
+    {
+        return addr;
+    }
+    return (addr - (addr % alignment)) + alignment;
 }
 
 /*
@@ -267,4 +270,16 @@ i64 kheap_free(struct kheap *heap, i64 addr)
     }
 
     return 0;
+}
+
+struct kheap kernel_heap;
+
+i64 kmalloc(i64 size)
+{
+    return kheap_alloc(&kernel_heap, size);
+}
+
+i64 kfree(i64 addr)
+{
+    return kheap_free(&kernel_heap, addr);
 }
