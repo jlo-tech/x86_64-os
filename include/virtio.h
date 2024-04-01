@@ -70,10 +70,17 @@ struct virtq_used // aka vring_used
 // Note: not actual struct in memory
 struct virtq // aka vring
 {
-    u16 num;      // queue num
-    u16 size;     // queue size
-    u16 last_idx; // last index of used queue
+    i64 elems; // Number of elems in queue
+    i64 space; // Physical addr/mem space holding queues
+    i64 dptr;  // Points to next free descriptor
     struct virtq_desc  *desc;
     struct virtq_avail *avail;
     struct virtq_used  *used;
 };
+
+typedef struct virtio_device 
+{
+    u16 num_queues;
+    pci_dev_t *pci_dev;
+    struct virtq *virtqs;
+} virtio_dev_t;

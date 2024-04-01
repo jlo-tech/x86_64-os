@@ -72,7 +72,9 @@ void kmain(struct multiboot_information *mb_info)
 
     pci_scan();
 
-    pci_dev_t virtio_dev = {.bus = 0x0, .dev = 0x4, .fun = 0x0};
+    pci_dev_t pci_dev = {.bus = 0x0, .dev = 0x4, .fun = 0x0};
+    virtio_dev_t virtio_dev;
+    virtio_dev_init(&virtio_dev, &pci_dev, 1);
     virtio_block_dev_init(&virtio_dev);
 
     // Wait for interrupts

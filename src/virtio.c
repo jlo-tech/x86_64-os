@@ -12,14 +12,14 @@ static u16 virtq_size(u16 qs)
 extern struct framebuffer fb;
 
 /* Initialize one of a device's virtqs */
-i64 virtio_create_queue(struct virtq *virtq, pci_dev_t *virtio_dev, u16 queue_num)
+static bool virtio_create_queue(virtio_dev_t *virtio_dev, u16 queue_num)
 {
     // Get virtio device's io offset
-    u32 iobase = pci_bar(virtio_dev, 0);
+    u32 iobase = pci_bar(virtio_dev->pci_dev, 0);
     
     // Check error
     if(iobase == 0xFFFFFFFF)
-        return -1;
+        return false;
 
     // Get only address from bar
     iobase &= 0xFFFFFFFC;
@@ -28,131 +28,83 @@ i64 virtio_create_queue(struct virtq *virtq, pci_dev_t *virtio_dev, u16 queue_nu
     outw(iobase + VIRTIO_HEADER_QUEUE_SELECT, queue_num);
     
     // Get size of queue
-    u16 queue_size = inw(iobase + VIRTIO_HEADER_QUEUE_SIZE);
+    u16 queue_elems = inw(iobase + VIRTIO_HEADER_QUEUE_SIZE);
     
+    // Save for later
+    virtio_dev->virtqs[queue_num].elems = queue_elems;
+
     // Check if queue exists
-    if(queue_size == 0)
-        return -1;
-
-    // Save num for later
-    virtq->num = queue_num;
-
-    // Save size for later
-    virtq->size = queue_size;
-
-    // Size for total virtq (NOTE: device can have multiple virtqs)
-    queue_size = virtq_size(queue_size);
-
-    // Allocate memory
-    i64 buf = kmalloc(queue_size);
-
-    // Check error
-    if(buf == -1)
-        return -1;
-
-    // Zero memory
-    bzero((u8*)buf, queue_size);
-
-    // Write aligned address back to queue_address 
-    outd(iobase + VIRTIO_HEADER_QUEUE_ADDRESS, align((u64)buf, 4096) / 4096);
-
-    // Fill pointers to structs in memory
-    virtq->desc  = (struct virtq_desc*)align(buf, 4096);
-    virtq->avail = (struct virtq_avail*)(align(buf, 4096) + sizeof(struct virtq_desc) * virtq->size);
-    virtq->used  = (struct virtq_used*)align(align(buf, 4096) + sizeof(struct virtq_desc) * virtq->size + sizeof(u16) * 2 + virtq->size * sizeof(u16), 4096);
-
-    return buf;
-}
-
-#if 0
-bool virtio_push_buffer(struct virtq *virtq, pci_dev_t *virtio_dev, void *buf, u32 len)
-{
-    // Next free descriptor
-    u16 new_idx = virtq->avail->idx % virtq->size;
-
-    // Fill buffer
-    struct virtq_desc *desc = &virtq->desc[new_idx];
-    desc->addr = (u64)buf;
-    desc->len = len;
-
-    // Mem sync
-    BARRIER
-
-    // Chaining of buffers is currenly omitted
-    // TODO : Implement it
-
-    // Make buffer visible
-    virtq->avail->ring[virtq->avail->idx % virtq->size] = new_idx;
-
-    // Mem sync
-    BARRIER
-
-    // Update index and make buffers visible
-    virtq->avail->idx++;
-
-    // Mem sync
-    BARRIER
-
-    // Get virtio device's io offset
-    u32 iobase = pci_bar(virtio_dev, 0);
-    
-    // Check error
-    if(iobase == 0xFFFFFFFF)
+    if(queue_elems == 0)
         return false;
 
-    // Get only address from bar
-    iobase &= 0xFFFFFFFC;
+    // Size for total virtq (NOTE: device can have multiple virtqs)
+    u16 queue_size = virtq_size(queue_elems);
 
-    // Notify device
-    outw(iobase + VIRTIO_HEADER_QUEUE_NOTIFY, virtq->num);
+    // Allocate memory
+    virtio_dev->virtqs[queue_num].space = kmalloc(queue_size);
 
-    // No error
+    // Check error
+    if(virtio_dev->virtqs[queue_num].space == -1)
+        return false;
+
+    // Zero memory
+    bzero((u8*)virtio_dev->virtqs[queue_num].space, queue_size);
+
+    // Write aligned address back to queue_address 
+    outd(iobase + VIRTIO_HEADER_QUEUE_ADDRESS, align((u64)virtio_dev->virtqs[queue_num].space, 4096) / 4096);
+
+    // Init
+    virtio_dev->virtqs[queue_num].dptr = 0;
+    // Fill pointers to structs in memory
+    virtio_dev->virtqs[queue_num].desc  = (struct virtq_desc*)align(virtio_dev->virtqs[queue_num].space, 4096);
+    virtio_dev->virtqs[queue_num].avail = (struct virtq_avail*)(align(virtio_dev->virtqs[queue_num].space, 4096) + sizeof(struct virtq_desc) * queue_elems);
+    virtio_dev->virtqs[queue_num].used  = (struct virtq_used*)align(align(virtio_dev->virtqs[queue_num].space, 4096) + sizeof(struct virtq_desc) * queue_elems + sizeof(u16) * 2 + queue_elems * sizeof(u16), 4096);
+
     return true;
 }
 
-bool virtio_pull_buffer(struct virtq **virtq_arr, i32 num_queues, pci_dev_t *virtio_dev, u32 *desc_chain_idx, u32 *desc_chain_len)
+bool virtio_dev_init(virtio_dev_t *virtio_dev, pci_dev_t *pci_dev, u16 num_queues)
 {
-    // Get virtio device's io offset
-    u32 iobase = pci_bar(virtio_dev, 0);
-    
-    // Check error
-    if(iobase == 0xFFFFFFFF)
+    // Save for later
+    virtio_dev->num_queues = num_queues;
+
+    // Save pointer to PCI dev
+    virtio_dev->pci_dev = pci_dev;
+
+    // Allocate space for queues
+    virtio_dev->virtqs = (struct virtq*)kmalloc(num_queues * sizeof(struct virtq));
+
+    // Check that mem is available
+    if(((i64)virtio_dev->virtqs) == -1)
         return false;
 
-    // Get only address from bar
-    iobase &= 0xFFFFFFFC;
-
-    // Read IRS register
-    u8 isr = inb(iobase + VIRTIO_HEADER_ISR_STATUS);   
-
-    // Check if interrupt was for this device
-    if((isr & 1) == 0)
-        return false;
-
-    // Traverse queues
-    for(i32 i = 0; i < num_queues; i++)
+    for(u16 i = 0; i < num_queues; i++)
     {
-        // Check on which queue the progress happens
-        if(virtq_arr[i]->last_idx != virtq_arr[i]->used->idx)
-        {
-            *desc_chain_idx = virtq_arr[i]->used->ring[virtq_arr[i]->last_idx].id;
-            *desc_chain_len = virtq_arr[i]->used->ring[virtq_arr[i]->last_idx].len;
-            // Update last idx
-            virtq_arr[i]->last_idx = virtq_arr[i]->used->idx;
-            // Done
-            break;
-        }
+        virtio_create_queue(virtio_dev, i);
     }
 
     // No error
     return true;
 }
-#endif
 
-bool virtio_device_reset(pci_dev_t *virtio_dev)
+bool virtio_dev_deinit(virtio_dev_t *virtio_dev)
+{
+    // Free all virtqs
+    for(u16 i = 0; i < virtio_dev->num_queues; i++)
+    {
+        kfree(virtio_dev->virtqs[i].space);
+    }
+
+    // Free virtq pointer array
+    kfree((i64)virtio_dev->virtqs);
+
+    return true;
+}
+
+bool virtio_dev_reset(virtio_dev_t *virtio_dev)
 {
     // Get virtio device's io offset
-    u32 iobase = pci_bar(virtio_dev, 0);
+    u32 iobase = pci_bar(virtio_dev->pci_dev, 0);
     
     // Check error
     if(iobase == 0xFFFFFFFF)
@@ -168,6 +120,69 @@ bool virtio_device_reset(pci_dev_t *virtio_dev)
     return true;
 }
 
+/*
+ * queue_num: Number of the queue to insert descriptors into (queue_num != num_queue !!!)
+*/
+bool virtio_deploy(virtio_dev_t *virtio_dev, u16 queue_num, struct virtq_desc *descriptors, u16 num_descriptors)
+{
+    struct virtq *vq = &virtio_dev->virtqs[queue_num];
+
+    u16 base_idx = vq->dptr;
+
+    // Copy first descriptor
+    vq->desc[vq->dptr].addr  = descriptors[0].addr;
+    vq->desc[vq->dptr].len   = descriptors[0].len;
+    vq->desc[vq->dptr].flags = descriptors[0].flags;
+    
+    // Are other descriptors incoming
+    if(num_descriptors > 1)
+    {
+        vq->desc[vq->dptr].flags |= VRING_DESC_F_NEXT;
+        vq->desc[vq->dptr].next = vq->dptr + 1;
+    }
+
+    // Copy other descriptors and chain them automatically
+    for(u16 i = 1; i < num_descriptors; i++)
+    {
+        vq->desc[(vq->dptr + i) % vq->elems].addr  = descriptors[i].addr;
+        vq->desc[(vq->dptr + i) % vq->elems].len   = descriptors[i].len;
+        vq->desc[(vq->dptr + i) % vq->elems].flags = descriptors[i].flags;
+        if(i < num_descriptors - 1)
+        {
+            vq->desc[(vq->dptr + i) % vq->elems].flags |= VRING_DESC_F_NEXT;
+            vq->desc[(vq->dptr + i) % vq->elems].next = (vq->dptr + i + 1) % vq->elems;
+        }
+    }
+
+    BARRIER
+
+    // Make descriptors available
+    vq->avail->ring[vq->avail->idx % vq->elems] = vq->dptr;
+    // Sync mem
+    BARRIER
+    // Make available descriptors visible to device
+    vq->avail->idx++;
+    // Sync mem
+    BARRIER
+
+    // Update dptr
+    vq->dptr = (vq->dptr + num_descriptors) % vq->elems;
+
+    // Get virtio device's io offset
+    u32 iobase = pci_bar(virtio_dev->pci_dev, 0);
+    
+    // Check error
+    if(iobase == 0xFFFFFFFF)
+        return false;
+
+    // Get only address from bar
+    iobase &= 0xFFFFFFFC;
+
+    // Notify device
+    outw(iobase + VIRTIO_HEADER_QUEUE_NOTIFY, 0);
+
+    return true;
+}
 
 #define VIRTIO_BLK_T_IN 0
 #define VIRTIO_BLK_T_OUT 1
@@ -190,10 +205,10 @@ struct virtio_block_req
     u8 status;
 }__attribute__((packed));
 
-bool virtio_block_dev_init(pci_dev_t *virtio_dev)
+bool virtio_block_dev_init(virtio_dev_t *virtio_dev)
 {
     // Get virtio device's io offset
-    u32 iobase = pci_bar(virtio_dev, 0);
+    u32 iobase = pci_bar(virtio_dev->pci_dev, 0);
 
     // Check error
     if(iobase == 0xFFFFFFFF)
@@ -209,16 +224,13 @@ bool virtio_block_dev_init(pci_dev_t *virtio_dev)
     vga_printf(&fb, "BLK DEV SIZE: %h\n", dev_size);
 
     // Reset device
-    virtio_device_reset(virtio_dev);
+    virtio_dev_reset(virtio_dev);
 
     // Unlock device
     outb(iobase + VIRTIO_HEADER_DEVICE_STATUS, 3);
 
     // Create virtqueue
-    struct virtq vq;
-    virtio_create_queue(&vq, virtio_dev, 0);
-
-    vga_printf(&fb, "Queue Size: %h\n", virtq_size(vq.size));
+    virtio_create_queue(virtio_dev, 0);
 
     // Currently no advanced features
     outd(iobase + VIRTIO_HEADER_GUEST_FEATURES, 0);
@@ -233,50 +245,31 @@ bool virtio_block_dev_init(pci_dev_t *virtio_dev)
     blkreq->sector = 0;
 
     char *data = align(kmalloc(4096), 4096);
+    bzero(data, 512);
     data[0] = 1;
     data[1] = 2;
 
     u8 *status = align(kmalloc(4096), 4096);
     *status = 0xff;
-    
-    // Hardcoded virtq push
-    vq.desc[0].addr = (u64)blkreq;
-    vq.desc[0].len = 16;
-    vq.desc[0].flags = VRING_DESC_F_NEXT;
-    vq.desc[0].next = 1;
 
-    vq.desc[1].addr = (u64)data;
-    vq.desc[1].len = 512;
-    vq.desc[1].flags = VRING_DESC_F_NEXT;
-    vq.desc[1].next = 2;
+    // Virtq deploy
 
-    vq.desc[2].addr = (u64)status;
-    vq.desc[2].len = 1;
-    vq.desc[2].flags = VRING_DESC_F_WRITE;
-    vq.desc[2].next = 0;
+    struct virtq_desc desc_arr[3];
 
-    BARRIER
+    desc_arr[0].addr = (u64)blkreq;
+    desc_arr[0].len = 16;
+    desc_arr[0].flags = 0;
 
-    // Make buffer visible
-    vq.avail->ring[0] = 0;
-    vq.avail->ring[1] = 1;
-    vq.avail->ring[2] = 2;
+    desc_arr[1].addr = (u64)data;
+    desc_arr[1].len = 512;
+    desc_arr[1].flags = 0;
 
-    // Mem sync
-    BARRIER
+    desc_arr[2].addr = (u64)status;
+    desc_arr[2].len = 1;
+    desc_arr[2].flags = VRING_DESC_F_WRITE;
 
-    // Update index and make buffers visible
-    vq.avail->idx = 3;
-
-    // Mem sync
-    BARRIER
-
-    // Notify device
-    outw(iobase + VIRTIO_HEADER_QUEUE_NOTIFY, 0);
-
+    virtio_deploy(virtio_dev, 0, desc_arr, 3);
     while(*status == 0xff);
-
-    vga_printf(&fb, "Status: %h\n", *status);
 
     // IOError code is due to conflicting sector sizes of guest and host (see https://bugzilla.redhat.com/show_bug.cgi?id=1738839)
 
@@ -288,47 +281,29 @@ bool virtio_block_dev_init(pci_dev_t *virtio_dev)
     blkin->sector = 0;
 
     char *din = align(kmalloc(4096), 4096);
+    bzero(din, 512);
 
     u8 *sin = align(kmalloc(4096), 4096);
     *sin = 0xff;
 
-    vq.desc[3].addr = (u64)blkin;
-    vq.desc[3].len = 16;
-    vq.desc[3].flags = VRING_DESC_F_NEXT;
-    vq.desc[3].next = 4;
+    struct virtq_desc desc_arr_in[3];
 
-    vq.desc[4].addr = (u64)din;
-    vq.desc[4].len = 512;
-    vq.desc[4].flags = VRING_DESC_F_NEXT | VRING_DESC_F_WRITE;
-    vq.desc[4].next = 5;
+    desc_arr_in[0].addr = (u64)blkin;
+    desc_arr_in[0].len = 16;
+    desc_arr_in[0].flags = 0;
 
-    vq.desc[5].addr = (u64)sin;
-    vq.desc[5].len = 1;
-    vq.desc[5].flags = VRING_DESC_F_WRITE;
-    vq.desc[5].next = 0;
+    desc_arr_in[1].addr = (u64)din;
+    desc_arr_in[1].len = 512;
+    desc_arr_in[1].flags = VRING_DESC_F_WRITE;
 
-    BARRIER
+    desc_arr_in[2].addr = (u64)sin;
+    desc_arr_in[2].len = 1;
+    desc_arr_in[2].flags = VRING_DESC_F_WRITE;
 
-    // Make buffer visible
-    vq.avail->ring[3] = 3;
-    vq.avail->ring[4] = 4;
-    vq.avail->ring[5] = 5;
+    virtio_deploy(virtio_dev, 0, desc_arr_in, 3);
+    while(*sin == 0xff);
 
-    // Mem sync
-    BARRIER
-
-    // Update index and make buffers visible
-    vq.avail->idx = 6;
-
-    // Mem sync
-    BARRIER
-
-    // Notify device
-    outw(iobase + VIRTIO_HEADER_QUEUE_NOTIFY, 0);
-
-    while(*status == 0xff);
-
-    vga_printf(&fb, "Data: %h %h\n", data[0], data[1]);
+    vga_printf(&fb, "VIO Data: %h %h\n", din[0], din[1]);
 
     return true;
 }

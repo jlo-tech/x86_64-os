@@ -241,9 +241,9 @@ void pci_scan()
                     u16 vid = pci_vendor_id(&pdev);
                     u16 did = pci_device_id(&pdev);
                     u8 cc = pci_class_code(&pdev);
+                    /*
                     u8 sc = pci_subclass_code(&pdev);
                     u8 bmt = pci_bar_mem_type(&pdev, 0);
-                    /*
                     u8 pi = pci_programming_interface(&pdev);
                     u8 ht = pci_header_type(&pdev);
                     u8 mf = pci_multi_function(&pdev);
