@@ -84,3 +84,10 @@ typedef struct virtio_device
     pci_dev_t *pci_dev;
     struct virtq *virtqs;
 } virtio_dev_t;
+
+bool virtio_dev_init(virtio_dev_t *virtio_dev, pci_dev_t *pci_dev, u16 num_queues);
+bool virtio_dev_deinit(virtio_dev_t *virtio_dev);
+bool virtio_dev_reset(virtio_dev_t *virtio_dev);
+
+bool virtio_create_queue(virtio_dev_t *virtio_dev, u16 queue_num);
+bool virtio_deploy(virtio_dev_t *virtio_dev, u16 queue_num, struct virtq_desc *descriptors, u16 num_descriptors);

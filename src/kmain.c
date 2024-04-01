@@ -6,6 +6,8 @@
 #include <intr.h>
 
 #include <virtio.h>
+#include <virtio_blk.h>
+
 #include <multiboot.h>
 
 struct framebuffer fb;
@@ -74,8 +76,27 @@ void kmain(struct multiboot_information *mb_info)
 
     pci_dev_t pci_dev = {.bus = 0x0, .dev = 0x4, .fun = 0x0};
     virtio_dev_t virtio_dev;
+    virtio_blk_dev_t blk_dev;
+    
     virtio_dev_init(&virtio_dev, &pci_dev, 1);
-    virtio_block_dev_init(&virtio_dev);
+    virtio_block_dev_init(&blk_dev, &virtio_dev);
+
+    // Write
+    u8 *data_out = (u8*)align(kmalloc(4096), 4096);
+    bzero(data_out, 512);
+
+    data_out[0] = 'O';
+    data_out[1] = 'k';
+
+    virtio_block_dev_write(&blk_dev, 0, data_out, 1);
+
+    // Read
+    u8 *data_in = (u8*)align(kmalloc(4096), 4096);
+    bzero(data_in, 512);
+
+    virtio_block_dev_read(&blk_dev, 0, data_in, 1);
+
+    vga_printf(&fb, "%s\n", data_in);
 
     // Wait for interrupts
     while(1) 
