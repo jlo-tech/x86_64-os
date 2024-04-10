@@ -4,6 +4,7 @@
 #include <pit.h>
 #include <pci.h>
 #include <intr.h>
+#include <user_mode.h>
 
 #include <virtio.h>
 #include <virtio_blk.h>
@@ -15,10 +16,27 @@ struct framebuffer fb;
 extern struct kheap kernel_heap;
 extern int cmp_chunks(struct kchunk *c0, struct kchunk* c1);
 
+
+extern void switch_context(struct interrupt_context *ctx);
+char __attribute__((aligned(4096))) user_stack[4096];
+void user_func()
+{
+    while(1)
+    {
+        __asm__ volatile("nop");
+        __asm__ volatile("nop");
+        __asm__ volatile("nop");
+        __asm__ volatile("nop");
+        __asm__ volatile("nop");
+    }
+}
+
 void kmain(struct multiboot_information *mb_info)
 {
     // Setup identity page mapping
     paging_id_full();
+
+    tss_init();
 
     fb.fgc = green;
     fb.bgc = black;
@@ -64,7 +82,7 @@ void kmain(struct multiboot_information *mb_info)
 
     // Enable external interrupts
     pic_init();
-    
+
     // Configure timer
     pit_freq(-1); // Max sleep time
 
@@ -97,6 +115,19 @@ void kmain(struct multiboot_information *mb_info)
     virtio_block_dev_read(&blk_dev, 0, data_in, 1);
 
     vga_printf(&fb, "%s\n", data_in);
+
+    // Switch to user mode
+    struct interrupt_context ctx;
+    ctx.rip = (u64)user_func;
+    ctx.cs = (3 << 3) | 3;
+    ctx.rflags = 0x202;
+    ctx.rsp = (u64)user_stack;
+    ctx.ds = (4 << 3) | 3;
+
+    switch_context(&ctx);
+
+    // TODO: Currently all pages are also user accessabile (see vmm.c) remove that and implement proper paging
+    // TODO: Syscalls
 
     // Wait for interrupts
     while(1) 

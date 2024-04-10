@@ -364,8 +364,7 @@ extern struct framebuffer fb;
 */
 struct cpu_context* intr_handler(struct cpu_context* saved_context, u64 code)
 {
-    //static int inv = 0;
-    //vga_printf(&fb, "[%d] Interrupt [%d]\n", inv++, code);
+    vga_printf(&fb, "Interrupt [%d]\n", code);
 
     if(code == 0x20)
     {

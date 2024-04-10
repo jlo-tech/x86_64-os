@@ -60,7 +60,16 @@ struct cpu_context
     u64 r13;
     u64 r14;
     u64 r15;
-};
+} __attribute__((packed));
+
+struct interrupt_context
+{
+    u64 rip;
+    u64 cs;
+    u64 rflags;
+    u64 rsp;
+    u64 ds;
+} __attribute__((packed));
 
 // Primary PIC
 #define PIC_PRI_CMD  0x20

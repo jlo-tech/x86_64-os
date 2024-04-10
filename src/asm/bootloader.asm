@@ -2,9 +2,12 @@ extern kmain
 
 global _start
 
+global global_descriptor_table
+global global_descriptor_table_pointer
 global page_id_ptr
 global page_id_dir
 global page_id_tab
+global kernel_stack
 
 section .multiboot_header
 
@@ -117,7 +120,7 @@ _start:
     mov cr0, eax
 
     ; load gdt
-    lgdt [gdt_long_mode.pointer]
+    lgdt [global_descriptor_table_pointer]
 
     ; reload code segment
     jmp 0x08:_kernel
@@ -141,22 +144,28 @@ _kernel:
     ; stop cpu
     hlt
 
-section .rodata
+section .data
 
-gdt_long_mode:
+; Code/Data-Entries: type | system vs. code/data segment | dpl | present | segment contains 64bit code
+
+global_descriptor_table:
 .table:
     dq 0
 .kernel_code:
-    dq (1<<43) | (1<<44) | (1<<47) | (1<<53) ; kernel code
+    dq (8<<40) | (1<<44) | (0<<45) | (1<<47) | (1<<53) ; kernel code
 .kernel_data:
-    dq (0<<43) | (1<<44) | (1<<47) | (1<<53) ; kernel data
+    dq (2<<40) | (1<<44) | (0<<45) | (1<<47) | (0<<53) ; kernel data
 .user_code:
-    dq (1<<43) | (1<<44) | (1<<45) | (1<<46) | (1<<47) | (1<<53) ; user code
+    dq (8<<40) | (1<<44) | (3<<45) | (1<<47) | (1<<53) ; user code
 .user_data:
-    dq (0<<43) | (1<<44) | (1<<45) | (1<<46) | (1<<47) | (1<<53) ; user data
-.pointer:
-    dw $ - gdt_long_mode - 1
-    dq gdt_long_mode
+    dq (2<<40) | (1<<44) | (3<<45) | (1<<47) | (0<<53) ; user data
+.tss:
+    dq 0 ; initialized by software when in long mode
+    dq 0 ; TSS descriptor is 16 bytes in long mode
+
+global_descriptor_table_pointer:
+    dw $ - global_descriptor_table - 1
+    dq global_descriptor_table
 
 section .bss
 

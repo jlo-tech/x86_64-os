@@ -25,7 +25,7 @@ iso: kernel
 run: iso
 	@$(QEMU) -cdrom os.iso -m 4G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk
 
-debug:
+debug: iso
 	@$(QEMU) -s -S -cdrom os.iso -m 4G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk
 
 clean:

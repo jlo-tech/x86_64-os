@@ -3,9 +3,9 @@ bits 64
 
 extern intr_handler
 
-section .text
+global switch_context
 
-; TODO: Function for switching contexts and privilege levels (based on iretq)
+section .text
 
 ; ============= ;
 ; Generate ISRs ;
@@ -101,4 +101,12 @@ isr_stub:
     add rsp, 8
 
     ; return from interrupt
+    iretq
+
+; Does context/mode switch
+; switch_context(struct interrupt_context *ctx)
+switch_context:
+    ; Load interrupt context
+    mov rsp, rdi
+    ; Do actual switch
     iretq
