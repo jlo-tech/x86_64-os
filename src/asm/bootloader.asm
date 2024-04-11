@@ -155,10 +155,10 @@ global_descriptor_table:
     dq (8<<40) | (1<<44) | (0<<45) | (1<<47) | (1<<53) ; kernel code
 .kernel_data:
     dq (2<<40) | (1<<44) | (0<<45) | (1<<47) | (0<<53) ; kernel data
-.user_code:
-    dq (8<<40) | (1<<44) | (3<<45) | (1<<47) | (1<<53) ; user code
 .user_data:
     dq (2<<40) | (1<<44) | (3<<45) | (1<<47) | (0<<53) ; user data
+.user_code:
+    dq (8<<40) | (1<<44) | (3<<45) | (1<<47) | (1<<53) ; user code
 .tss:
     dq 0 ; initialized by software when in long mode
     dq 0 ; TSS descriptor is 16 bytes in long mode

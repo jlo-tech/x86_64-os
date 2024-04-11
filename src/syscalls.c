@@ -1,5 +1,7 @@
 #include <syscalls.h>
 
+extern void syscall_handler();
+
 u64 rmsr(u32 msr)
 {
     u32 lo, hi;
@@ -14,26 +16,21 @@ void wmsr(u32 msr, u64 val)
     asm volatile("wrmsr" : : "a"(lo), "d"(hi), "c"(msr));
 }
 
-static void syscall_handler();
-
 void syscalls_setup()
 {
-  
-    // TODO: Enable syscalls in IA32_EFER MSR
-
-
     // Disable interrupts but leave rest as it is
-    //wmsr(MSR_IA32_FMASK, 1 << 9);
+    wmsr(MSR_IA32_FMASK, 1 << 9);
 
     // Set handler address
-    //wmsr(MSR_IA32_LSTAR, (u64)syscall_handler);
-}
+    wmsr(MSR_IA32_LSTAR, (u64)syscall_handler);
 
-static void syscall_handler()
-{
-    // TODO: Create and load stack and preserve rcx
+    // Set segment selectors in STAR register
+    // NOTE: The manual specifies that certains offsets are added to selector values
+    // therefore they do not exactly correspond to gdt entries
+    u64 cal_sel = (u64)((1 << 3) | 0) << 32;
+    u64 ret_sel = (u64)((2 << 3) | 3) << 48;
+    wmsr(MSR_IA32_STAR, ret_sel | cal_sel | (rmsr(MSR_IA32_STAR) & 0xFFFFFFFF));
 
-    // TODO: Implement syscalls
-
-    //__asm__ volatile("sysret");
+    // Enable syscalls in IA32_EFER MSR
+    wmsr(MSR_IA32_EFER, rmsr(MSR_IA32_EFER) | 1);
 }

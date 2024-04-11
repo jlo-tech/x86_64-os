@@ -32,3 +32,5 @@ struct tss_descriptor
     u32 base_upper;
     u32 reserved;
 } __attribute__((packed));
+
+void tss_init();

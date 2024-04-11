@@ -4,6 +4,7 @@
 #include <pit.h>
 #include <pci.h>
 #include <intr.h>
+#include <syscalls.h>
 #include <user_mode.h>
 
 #include <virtio.h>
@@ -27,7 +28,7 @@ void user_func()
         __asm__ volatile("nop");
         __asm__ volatile("nop");
         __asm__ volatile("nop");
-        __asm__ volatile("nop");
+        __asm__ volatile("syscall");
     }
 }
 
@@ -116,18 +117,21 @@ void kmain(struct multiboot_information *mb_info)
 
     vga_printf(&fb, "%s\n", data_in);
 
+    // Enable syscalls
+    syscalls_setup();
+
     // Switch to user mode
     struct interrupt_context ctx;
     ctx.rip = (u64)user_func;
-    ctx.cs = (3 << 3) | 3;
+    ctx.cs = (4 << 3) | 3;
     ctx.rflags = 0x202;
     ctx.rsp = (u64)user_stack;
-    ctx.ds = (4 << 3) | 3;
+    ctx.ds = (3 << 3) | 3;
 
     switch_context(&ctx);
 
     // TODO: Currently all pages are also user accessabile (see vmm.c) remove that and implement proper paging
-    // TODO: Syscalls
+    // TODO: Syscall handler
 
     // Wait for interrupts
     while(1) 
