@@ -1,5 +1,6 @@
 #include <syscalls.h>
 
+extern void kernel_stack;
 extern void syscall_handler();
 
 u64 rmsr(u32 msr)
@@ -16,6 +17,8 @@ void wmsr(u32 msr, u64 val)
     asm volatile("wrmsr" : : "a"(lo), "d"(hi), "c"(msr));
 }
 
+static struct kernel_root kernel_root_struct;
+
 void syscalls_setup()
 {
     // Disable interrupts but leave rest as it is
@@ -23,6 +26,12 @@ void syscalls_setup()
 
     // Set handler address
     wmsr(MSR_IA32_LSTAR, (u64)syscall_handler);
+
+    // Init kernel root struct
+    kernel_root_struct.kernel_stack = &kernel_stack;
+
+    // Set stack for syscall handler
+    wmsr(MSR_IA32_KERNEL_GS_BASE, &kernel_root_struct);
 
     // Set segment selectors in STAR register
     // NOTE: The manual specifies that certains offsets are added to selector values
@@ -33,4 +42,13 @@ void syscalls_setup()
 
     // Enable syscalls in IA32_EFER MSR
     wmsr(MSR_IA32_EFER, rmsr(MSR_IA32_EFER) | 1);
+}
+
+/*
+ * Syscall handler
+ */
+extern struct framebuffer fb;
+u64 do_syscall(u64 syscall_number)
+{
+    vga_printf(&fb, "Syscall no %d\n", syscall_number);
 }

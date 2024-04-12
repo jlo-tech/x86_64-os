@@ -8,6 +8,20 @@
 #define MSR_IA32_CSTAR 0xC0000083
 #define MSR_IA32_FMASK 0xC0000084
 
+#define MSR_IA32_KERNEL_GS_BASE 0xC0000102
+
+/*
+ * Struct used to refer to kernel stack on syscall 
+ * from user mode and to save important user data
+ */
+struct kernel_root
+{
+    u64 kernel_stack;
+    u64 user_stack;
+    u64 user_flags;
+    u64 user_rip;
+} __attribute__((packed));
+
 u64 rmsr(u32 msr);
 void wmsr(u32 msr, u64 val);
 

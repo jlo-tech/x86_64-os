@@ -24,11 +24,10 @@ void user_func()
 {
     while(1)
     {
-        __asm__ volatile("nop");
-        __asm__ volatile("nop");
-        __asm__ volatile("nop");
-        __asm__ volatile("nop");
-        __asm__ volatile("syscall");
+        asm volatile(
+            "mov $777, %rdi\n" 
+            "syscall \n"
+        );
     }
 }
 
