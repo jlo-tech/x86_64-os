@@ -1,3 +1,4 @@
+#include <vga.h>
 #include <syscalls.h>
 
 extern void kernel_stack;
@@ -28,10 +29,10 @@ void syscalls_setup()
     wmsr(MSR_IA32_LSTAR, (u64)syscall_handler);
 
     // Init kernel root struct
-    kernel_root_struct.kernel_stack = &kernel_stack;
+    kernel_root_struct.kernel_stack = (u64)&kernel_stack;
 
     // Set stack for syscall handler
-    wmsr(MSR_IA32_KERNEL_GS_BASE, &kernel_root_struct);
+    wmsr(MSR_IA32_KERNEL_GS_BASE, (u64)&kernel_root_struct);
 
     // Set segment selectors in STAR register
     // NOTE: The manual specifies that certains offsets are added to selector values
@@ -51,4 +52,6 @@ extern struct framebuffer fb;
 u64 do_syscall(u64 syscall_number)
 {
     vga_printf(&fb, "Syscall no %d\n", syscall_number);
+
+    return 0;
 }
