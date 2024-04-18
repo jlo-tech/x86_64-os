@@ -1,11 +1,5 @@
 #include <pmm.h>
 
-// Linker variables
-//extern char kernel_base;
-//extern char kernel_limit;
-//static const u64 kernel_base_addr  = (u64)&kernel_base;
-//static const u64 kernel_limit_addr = (u64)&kernel_limit;
-
 #define ABS(x) ((x < 0) ? (-x) : x)
 
 /**
