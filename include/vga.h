@@ -30,3 +30,6 @@ void vga_print_hex(struct framebuffer *fb, u64 n);
 void vga_print_int(struct framebuffer *fb, i64 n);
 
 void vga_printf(struct framebuffer *fb, char *s, ...);
+
+void kprintf(char *s, ...);
+void kclear();

@@ -153,11 +153,8 @@ void vga_print_int(struct framebuffer *fb, i64 n)
     vga_print_uint(fb, n);
 }
 
-void vga_printf(struct framebuffer *fb, char *s, ...)
+void __vga_printf(struct framebuffer *fb, char *s, va_list arg)
 {
-    va_list arg;
-    va_start(arg, s);
-
     int i = 0;
     int len = 0;
     while(*(s+len) != '\0')
@@ -199,4 +196,32 @@ void vga_printf(struct framebuffer *fb, char *s, ...)
         s++;
         i++;
     }
+}
+
+void vga_printf(struct framebuffer *fb, char *s, ...)
+{
+    va_list args;
+    va_start(args, s);
+    
+    __vga_printf(fb, s, args);
+    
+    va_end(args);
+}
+
+// Expose kprintf
+static struct framebuffer fb = {.fgc = green, .bgc = black, .bright = true};
+
+void kprintf(char *s, ...)
+{
+    va_list args;
+    va_start(args, s);
+
+    __vga_printf(&fb, s, args);
+
+    va_end(args);
+}
+
+void kclear()
+{
+    vga_clear(&fb);
 }

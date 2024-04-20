@@ -48,10 +48,9 @@ void syscalls_setup()
 /*
  * Syscall handler
  */
-extern struct framebuffer fb;
 u64 do_syscall(u64 syscall_number)
 {
-    vga_printf(&fb, "Syscall no %d\n", syscall_number);
+    kprintf("Syscall no %d\n", syscall_number);
 
     return 0;
 }

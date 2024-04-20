@@ -9,8 +9,6 @@ static u16 virtq_size(u16 qs)
                  sizeof(u16) * 2 + qs * sizeof(struct virtq_used_elem);
 }
 
-extern struct framebuffer fb;
-
 /* Initialize one of a device's virtqs */
 bool virtio_create_queue(virtio_dev_t *virtio_dev, u16 queue_num)
 {

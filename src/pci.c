@@ -223,11 +223,10 @@ u64 pci_bar_addr_space(pci_dev_t *pci_dev, u8 bar_index)
 }
 
 #include <vga.h>
-extern struct framebuffer fb;
 
 void pci_scan()
 {
-    vga_printf(&fb, "PCI Scan:\n");
+    kprintf("PCI Scan:\n");
     for(u16 bus = 0; bus < 256; bus++)
     {
         for(u16 dev = 0; dev < 32; dev++)
@@ -250,7 +249,7 @@ void pci_scan()
                     u64 as = pci_bar_mem_addr_size(&pdev, 0);
                     u64 bs = pci_bar_addr_space(&pdev, 0);
                     */
-                    vga_printf(&fb, "BUS: %h DEV: %h FUN: %h VID: %h DID: %h CC: %h\n", bus, dev, fun, vid, did, cc);
+                    kprintf("BUS: %h DEV: %h FUN: %h VID: %h DID: %h CC: %h\n", bus, dev, fun, vid, did, cc);
                 }
             }
         }
