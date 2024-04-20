@@ -10,25 +10,35 @@ void bzero(u8 *mem, u64 size)
 
 struct ktree_node* ktree_leftmost(struct ktree_node *root)
 {
-    if(root->valid[KTREE_LEFT])
+    struct ktree_node *curr = root;
+
+    while(1)
     {
-        return ktree_leftmost(root->left);
-    }
-    else
-    {
-        return root;
+        if(curr->valid[KTREE_LEFT])
+        {
+            curr = curr->left;
+        }
+        else
+        {
+            return curr;
+        }
     }
 }
 
 struct ktree_node* ktree_rightmost(struct ktree_node *root)
 {
-    if(root->valid[KTREE_RIGHT])
+    struct ktree_node *curr = root;
+
+    while(1)
     {
-        return ktree_rightmost(root->right);
-    }
-    else
-    {
-        return root;
+        if(curr->valid[KTREE_RIGHT])
+        {
+            curr = curr->right;
+        }
+        else
+        {
+            return curr;
+        }
     }
 }
 
@@ -40,37 +50,40 @@ bool ktree_empty(struct ktree *root)
 void __ktree_insert(struct ktree_node *root, struct ktree_node *node, 
                   int off, int (*cmp)(void*, void*))
 {
-    void *rv = ((u8*)root) - off;
-    void *nv = ((u8*)node) - off;
-
-    int r = cmp(rv, nv);
-
-    if(r < 0)
+    while(1)
     {
-        if(root->valid[KTREE_LEFT])
+        void *rv = ((u8*)root) - off;
+        void *nv = ((u8*)node) - off;
+
+        int r = cmp(rv, nv);
+
+        if(r < 0)
         {
-            return __ktree_insert(root->left, node, off, cmp);
-        }
-        else 
-        {
-            root->valid[KTREE_LEFT] = true;
-            root->left = node;
-            node->parent = root;
-            return;
-        }
-    }
-    else
-    {
-        if(root->valid[KTREE_RIGHT])
-        {
-            return __ktree_insert(root->right, node, off, cmp);
+            if(root->valid[KTREE_LEFT])
+            {
+                root = root->left;
+            }
+            else 
+            {
+                root->valid[KTREE_LEFT] = true;
+                root->left = node;
+                node->parent = root;
+                return;
+            }
         }
         else
         {
-            root->valid[KTREE_RIGHT] = true;
-            root->right = node;
-            node->parent = root;
-            return;
+            if(root->valid[KTREE_RIGHT])
+            {
+                root = root->right;
+            }
+            else
+            {
+                root->valid[KTREE_RIGHT] = true;
+                root->right = node;
+                node->parent = root;
+                return;
+            }
         }
     }
 }
@@ -78,92 +91,97 @@ void __ktree_insert(struct ktree_node *root, struct ktree_node *node,
 void __ktree_remove(struct ktree_node *root, struct ktree_node *node, 
                   int off, int (*cmp)(void*, void*))
 {
-    void *rv = ((u8*)root) - off;
-    void *nv = ((u8*)node) - off;
-
-    int r = cmp(rv, nv);
-
-    if(r == 0)
+    while(1) 
     {
-        // Delete node
+        void *rv = ((u8*)root) - off;
+        void *nv = ((u8*)node) - off;
 
-        // No children
-        if(!root->valid[KTREE_LEFT] && !root->valid[KTREE_RIGHT])
+        int r = cmp(rv, nv);
+
+        if(r == 0)
         {
-            if(root->parent->left == root)
+            // Delete node
+
+            // No children
+            if(!root->valid[KTREE_LEFT] && !root->valid[KTREE_RIGHT])
             {
-                root->parent->valid[KTREE_LEFT] = false;
+                if(root->parent->left == root)
+                {
+                    root->parent->valid[KTREE_LEFT] = false;
+                }
+                else 
+                {
+                    root->parent->valid[KTREE_RIGHT] = false;
+                }
+            }
+
+            // Only one child
+            if(!root->valid[KTREE_LEFT] && root->valid[KTREE_RIGHT])
+            {
+                if(root->parent->left == root)
+                {
+                    root->parent->left = root->right;
+                }
+                else 
+                {
+                    root->parent->right = root->right;
+                }
+            }
+            if(root->valid[KTREE_LEFT] && !root->valid[KTREE_RIGHT])
+            {
+                if(root->parent->left == root)
+                {
+                    root->parent->left = root->left;
+                }
+                else 
+                {
+                    root->parent->right = root->left;
+                }
+            }
+
+            // Two children
+            if(root->valid[KTREE_LEFT] && root->valid[KTREE_RIGHT])
+            {
+                struct ktree_node *tr = root->right;
+                if(root->parent->left == root)
+                {
+                    root->parent->left = root->left;
+                }
+                else
+                {
+                    root->parent->right = root->left;
+                }
+                struct ktree_node *rm = ktree_rightmost(root->left);
+                rm->right = tr;
+                rm->valid[KTREE_RIGHT] = true;
+                rm->parent = root->parent;
+                tr->parent = rm;
+            }
+
+            return;
+        }
+        // Continue traversing
+        else if(r < 0)
+        {
+            if(root->valid[KTREE_LEFT])
+            {
+                root = root->left;
             }
             else 
             {
-                root->parent->valid[KTREE_RIGHT] = false;
+                return;
             }
-        }
-
-        // Only one child
-        if(!root->valid[KTREE_LEFT] && root->valid[KTREE_RIGHT])
-        {
-            if(root->parent->left == root)
-            {
-                root->parent->left = root->right;
-            }
-            else 
-            {
-                root->parent->right = root->right;
-            }
-        }
-        if(root->valid[KTREE_LEFT] && !root->valid[KTREE_RIGHT])
-        {
-            if(root->parent->left == root)
-            {
-                root->parent->left = root->left;
-            }
-            else 
-            {
-                root->parent->right = root->left;
-            }
-        }
-
-        // Two children
-        if(root->valid[KTREE_LEFT] && root->valid[KTREE_RIGHT])
-        {
-            struct ktree_node *tr = root->right;
-            if(root->parent->left == root)
-            {
-                root->parent->left = root->left;
-            }
-            else
-            {
-                root->parent->right = root->left;
-            }
-            struct ktree_node *rm = ktree_rightmost(root->left);
-            rm->right = tr;
-            rm->valid[KTREE_RIGHT] = true;
-            rm->parent = root->parent;
-            tr->parent = rm;
-        }
-    }
-    // Continue traversing
-    else if(r < 0)
-    {
-        if(root->valid[KTREE_LEFT])
-        {
-            __ktree_remove(root->left, node, off, cmp);
         }
         else 
         {
-            return;
-        }
-    }
-    else 
-    {
-        if(root->valid[KTREE_RIGHT])
-        {
-            __ktree_remove(root->right, node, off, cmp);
-        }
-        else 
-        {
-            return;
+            if(root->valid[KTREE_RIGHT])
+            {
+                root = root->right;
+            }
+            else 
+            {
+                return;
+            }
         }
     }
 }
