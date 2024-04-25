@@ -12,11 +12,14 @@
 
 #include <multiboot.h>
 
-struct framebuffer fb;
-
 extern struct kheap kernel_heap;
 extern int cmp_chunks(struct kchunk *c0, struct kchunk* c1);
 
+// Linker variables
+extern void kernel_base;
+extern void kernel_limit;
+const u64 kernel_base_addr  = (u64)&kernel_base;
+const u64 kernel_limit_addr = (u64)&kernel_limit;
 
 extern void switch_context(struct interrupt_context *ctx);
 char __attribute__((aligned(4096))) user_stack[4096];
@@ -38,23 +41,19 @@ void kmain(struct multiboot_information *mb_info)
 
     tss_init();
 
-    fb.fgc = green;
-    fb.bgc = black;
-    fb.bright = true;
-
-    vga_clear(&fb);
-    vga_printf(&fb, "Kernel at your service!\n");
+    kclear();
+    kprintf("Kernel at your service!\n");
 
     // Init heap
     kheap_init(&kernel_heap);
 
-    vga_printf(&fb, "Multiboot info struct: %u\n", (u64)mb_info);
-    vga_printf(&fb, "Multiboot memory map: %u\n", (u64)multiboot_memmap(mb_info));
+    kprintf("Multiboot info struct: %u\n", (u64)mb_info);
+    kprintf("Multiboot memory map: %u\n", (u64)multiboot_memmap(mb_info));
 
     struct multiboot_memory_map* memmap = multiboot_memmap(mb_info);
 
     u64 num_entries = multiboot_memmap_num_entries(memmap);
-    vga_printf(&fb, "Memory map num entries: %u\n", num_entries);
+    kprintf("Memory map num entries: %u\n", num_entries);
 
     for(int i = 0; i < multiboot_memmap_num_entries(memmap); i++)
     {
@@ -62,10 +61,10 @@ void kmain(struct multiboot_information *mb_info)
         u64 etype = (u64)entry->type;
         u64 eaddr = (u64)entry->address;
         u64 elen  = (u64)entry->length;
-        vga_printf(&fb, "Type: %d, Addr: %d, Len: %d\n", etype, eaddr, elen);
+        kprintf("Index: %d, Type: %d, Addr: %d, Len: %d\n", i, etype, eaddr, elen);
 
         // Insert some memory chunk
-        if(etype == 1)
+        if(etype == 1 && i != 3) // Dont load chunk were kernel lays TODO: find more dynamic approach to this
         {
             // NOTE: When adding chunk it must be correctly aligned to a even multiple of PAGE_SIZE
             struct kchunk *kc = (struct kchunk*)eaddr;
@@ -76,9 +75,12 @@ void kmain(struct multiboot_information *mb_info)
         }
     }
 
+    kprintf("Kernel start %d\n", kernel_base_addr);
+    kprintf("Kernel limit %d\n", kernel_limit_addr);
+
     // Enable local interrupts
     intr_setup();
-    intr_enable();
+    //intr_enable();
 
     // Enable external interrupts
     pic_init();
@@ -86,16 +88,14 @@ void kmain(struct multiboot_information *mb_info)
     // Configure timer
     pit_freq(-1); // Max sleep time
 
-    vga_printf(&fb, "Still alive!\n");
-
-    vga_clear();
+    kclear();
 
     pci_scan();
 
     pci_dev_t pci_dev = {.bus = 0x0, .dev = 0x4, .fun = 0x0};
     virtio_dev_t virtio_dev;
     virtio_blk_dev_t blk_dev;
-    
+
     virtio_dev_init(&virtio_dev, &pci_dev, 1);
     virtio_block_dev_init(&blk_dev, &virtio_dev);
 
@@ -114,10 +114,23 @@ void kmain(struct multiboot_information *mb_info)
 
     virtio_block_dev_read(&blk_dev, 0, data_in, 1);
 
-    vga_printf(&fb, "%s\n", data_in);
+    kprintf("%s\n", data_in);
 
     // Enable syscalls
     syscalls_setup();
+
+    // Setup paging
+    struct page_table *pt = (struct page_table*)align(kmalloc(4096), 4096);
+    bzero((u8*)pt, sizeof(struct page_table));
+
+    // Map kernel but this time make it user accessible
+    paging_map_range(pt, 0, 0, 
+        PAGE_PRESENT | PAGE_USER | PAGE_WRITABLE, 
+        align(kernel_limit_addr, 4096),
+        4096);
+
+    // Load new pt
+    paging_activate(pt);
 
     // Switch to user mode
     struct interrupt_context ctx;
@@ -127,10 +140,8 @@ void kmain(struct multiboot_information *mb_info)
     ctx.rsp = (u64)user_stack;
     ctx.ds = (3 << 3) | 3;
 
+    intr_enable();
     switch_context(&ctx);
-
-    // TODO: Currently all pages are also user accessabile (see vmm.c) remove that and implement proper paging
-    // TODO: Syscall handler
 
     // Wait for interrupts
     while(1) 
