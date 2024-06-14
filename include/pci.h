@@ -36,3 +36,5 @@ u32 pci_bar(pci_dev_t *pci_dev, u8 bar_index);
 u8 pci_bar_mem_type(pci_dev_t *pci_dev, u8 bar_index);
 u8 pci_bar_mem_addr_size(pci_dev_t *pci_dev, u8 bar_index);
 u64 pci_bar_addr_space(pci_dev_t *pci_dev, u8 bar_index);
+
+void pci_scan();

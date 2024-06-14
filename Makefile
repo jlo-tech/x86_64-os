@@ -5,17 +5,21 @@ CFLAGS=-g -c -ffreestanding -nostdlib -nostartfiles -fno-builtin -fno-stack-prot
 LD=ld
 QEMU=qemu-system-x86_64
 
-OBJC = $(patsubst %.c, %.o, $(wildcard src/*.c))
-OBJA = $(patsubst %.asm, %.o, $(wildcard src/asm/*.asm))
+OBJFS = $(patsubst %.c, %.o, $(wildcard src/fs/*.c))
+OBJC  = $(patsubst %.c, %.o, $(wildcard src/*.c))
+OBJA  = $(patsubst %.asm, %.o, $(wildcard src/asm/*.asm))
 
 src/%.o: src/%.c
+	@$(CC) $(CFLAGS) -o $@ $^
+
+src/fs/%.o: src/fs/%.c
 	@$(CC) $(CFLAGS) -o $@ $^
 
 src/asm/%.o: src/asm/%.asm
 	@$(NASM) $(ASMFLAGS) $^
 
-kernel: $(OBJC) $(OBJA)
-	@$(LD) -r -o kernel.o src/asm/*.o src/*.o
+kernel: $(OBJC) $(OBJA) $(OBJFS)
+	@$(LD) -r -o kernel.o src/asm/*.o src/*.o src/fs/*.o
 	@$(LD) -n -o kernel.bin -T linker.ld kernel.o
 
 iso: kernel
@@ -30,6 +34,7 @@ debug: iso
 
 clean:
 	@rm -r src/asm/*.o
+	@rm -r src/fs/*.o
 	@rm -r src/*.o
 	@rm -r *.o
 	@rm -r kernel.bin

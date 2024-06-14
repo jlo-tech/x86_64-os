@@ -12,6 +12,8 @@
 
 #include <multiboot.h>
 
+#include <fs/fs.h>
+
 extern struct kheap kernel_heap;
 extern int cmp_chunks(struct kchunk *c0, struct kchunk* c1);
 
@@ -99,6 +101,13 @@ void kmain(struct multiboot_information *mb_info)
     virtio_dev_init(&virtio_dev, &pci_dev, 1);
     virtio_block_dev_init(&blk_dev, &virtio_dev);
 
+    struct fs fs;
+
+    fs_init(&fs, &blk_dev);
+    u64 bi = fs_alloc_block(&fs);
+    kprintf("%d\n", bi);
+
+#if 0
     // Write
     u8 *data_out = (u8*)align(kmalloc(4096), 4096);
     bzero(data_out, 512);
@@ -115,6 +124,7 @@ void kmain(struct multiboot_information *mb_info)
     virtio_block_dev_read(&blk_dev, 0, data_in, 1);
 
     kprintf("%s\n", data_in);
+#endif
 
     // Enable syscalls
     syscalls_setup();
@@ -141,7 +151,7 @@ void kmain(struct multiboot_information *mb_info)
     ctx.ds = (3 << 3) | 3;
 
     intr_enable();
-    switch_context(&ctx);
+    //switch_context(&ctx);
 
     // Wait for interrupts
     while(1) 
