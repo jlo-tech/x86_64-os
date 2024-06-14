@@ -65,3 +65,4 @@ struct fs
 void fs_init(struct fs *fs, virtio_blk_dev_t *blk_dev);
 
 u64 fs_alloc_block(struct fs *fs);
+u64 fs_free_block(struct fs *fs, u64 block_index);

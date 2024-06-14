@@ -67,7 +67,27 @@ u64 fs_alloc_block(struct fs *fs)
 }
 
 // Release block on disk
-static u64 fs_free_block(struct fs *fs, u64 block_index);
+u64 fs_free_block(struct fs *fs, u64 block_index)
+{
+    // Bounds check
+    if(block_index > fs->sb_cache.disk_size)
+    {
+        return FS_ERROR;
+    }
+    // Bitmap cache
+    u64 bc[64];
+    // Calculate position
+    u64 index_from_base = block_index - (1 + fs->sb_cache.block_map_size);
+    // Read bitmap 
+    virtio_block_dev_read(fs->blk_dev, 1 + (index_from_base / 512), (u8*)&bc, 1);
+    // Mark as free
+    u64 qword_index = (index_from_base % 512) / 64;
+    bc[qword_index] = bc[qword_index] ^ (BLOCK_USED << ((index_from_base % 512) % 64));
+    // Write back
+    virtio_block_dev_write(fs->blk_dev, 1 + (index_from_base / 512), (u8*)&bc, 1);
+    // Return on success
+    return block_index;
+}
 
 // Allocates one additional block on inode
 static u64 fs_expand_inode(struct fs *fs, u64 inode_index);

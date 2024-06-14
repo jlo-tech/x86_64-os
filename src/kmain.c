@@ -106,6 +106,7 @@ void kmain(struct multiboot_information *mb_info)
     fs_init(&fs, &blk_dev);
     u64 bi = fs_alloc_block(&fs);
     kprintf("%d\n", bi);
+    kprintf("%d\n", fs_free_block(&fs, bi));
 
 #if 0
     // Write
