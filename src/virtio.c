@@ -126,15 +126,15 @@ bool virtio_deploy(virtio_dev_t *virtio_dev, u16 queue_num, struct virtq_desc *d
     struct virtq *vq = &virtio_dev->virtqs[queue_num];
 
     // Copy first descriptor
-    vq->desc[vq->dptr].addr  = descriptors[0].addr;
-    vq->desc[vq->dptr].len   = descriptors[0].len;
-    vq->desc[vq->dptr].flags = descriptors[0].flags;
+    vq->desc[vq->dptr % vq->elems].addr  = descriptors[0].addr;
+    vq->desc[vq->dptr % vq->elems].len   = descriptors[0].len;
+    vq->desc[vq->dptr % vq->elems].flags = descriptors[0].flags;
     
     // Are other descriptors incoming
     if(num_descriptors > 1)
     {
-        vq->desc[vq->dptr].flags |= VRING_DESC_F_NEXT;
-        vq->desc[vq->dptr].next = vq->dptr + 1;
+        vq->desc[vq->dptr % vq->elems].flags |= VRING_DESC_F_NEXT;
+        vq->desc[vq->dptr % vq->elems].next = (vq->dptr + 1) % vq->elems;
     }
 
     // Copy other descriptors and chain them automatically
@@ -153,7 +153,7 @@ bool virtio_deploy(virtio_dev_t *virtio_dev, u16 queue_num, struct virtq_desc *d
     BARRIER
 
     // Make descriptors available
-    vq->avail->ring[vq->avail->idx % vq->elems] = vq->dptr;
+    vq->avail->ring[vq->avail->idx % vq->elems] = vq->dptr % vq->elems;
     // Sync mem
     BARRIER
     // Make available descriptors visible to device

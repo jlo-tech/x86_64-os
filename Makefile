@@ -27,7 +27,7 @@ iso: kernel
 	@grub-mkrescue -o os.iso iso
 
 run: iso
-	@$(QEMU) -cdrom os.iso -m 6G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk
+	@$(QEMU) -cdrom os.iso -m 8G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk
 
 debug: iso
 	@$(QEMU) -s -S -cdrom os.iso -m 8G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk -no-reboot -no-shutdown -d int,cpu_reset
@@ -41,3 +41,4 @@ clean:
 	@rm -r iso/boot/kernel.bin
 	@rm -r os.iso
 	@rm -r .gdb_history
+	@python3 wipe.py
