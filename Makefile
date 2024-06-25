@@ -24,7 +24,7 @@ kernel: $(OBJC) $(OBJA) $(OBJFS)
 
 iso: kernel
 	@cp kernel.bin iso/boot/
-	@grub-mkrescue -o os.iso iso
+	@grub2-mkrescue -o os.iso iso
 
 run: iso
 	@$(QEMU) -cdrom os.iso -m 8G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk
