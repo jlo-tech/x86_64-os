@@ -12,6 +12,8 @@
 
 #define FS_ERROR 0xFFFFFFFFFFFFFFFF
 
+#define FS_NUM_BLOCKS 62
+
 /* 
  *  Disk Layout:
  *  
@@ -43,12 +45,10 @@ struct dir_entry
 
 struct inode
 {
-    u64 type;               // file / dir (when file: data blocks contain file content, 
-                            //             when dir: data blocks contain dir_entry descriptors)
-    u64 file_size;          // in bytes
-    u64 l1_data_blocks[30]; // direct pointers to data blocks
-    u64 l2_data_blocks[16]; // pointers to data blocks which contain pointers to data blocks
-    u64 l3_data_blocks[16]; // same but with two layers of indirection
+    u64 type;                       // file / dir (when file: data blocks contain file content, 
+                                    //             when dir: data blocks contain dir_entry descriptors)
+    u64 file_size;                  // in bytes
+    u64 data_blocks[FS_NUM_BLOCKS]; // pointers to data blocks which contain pointers to data blocks
 } __attribute__((packed));
 
 // Management structures
@@ -66,3 +66,5 @@ void fs_init(struct fs *fs, virtio_blk_dev_t *blk_dev);
 
 u64 fs_alloc_block(struct fs *fs);
 u64 fs_free_block(struct fs *fs, u64 block_index);
+
+u64 fs_resize_inode(struct fs *fs, u64 inode_index, u64 new_size);

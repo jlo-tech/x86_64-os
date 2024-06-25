@@ -91,6 +91,7 @@ isr_stub:
     ; call c handler
     mov rdi, rsp          ; pointer to saved vars
     mov rsi, [rsp+(15*8)] ; pass saved interrupt code
+    lea rdx, [rsp+(16*8)] ; pass interrupt context to handler # TODO: Intr context is in wrong order
     call intr_handler
     mov rsp, rax          ; restore saved context
 

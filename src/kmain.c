@@ -104,9 +104,11 @@ void kmain(struct multiboot_information *mb_info)
     struct fs fs;
 
     fs_init(&fs, &blk_dev);
-    u64 bi = fs_alloc_block(&fs);
-    kprintf("%d\n", bi);
-    kprintf("%d\n", fs_free_block(&fs, bi));
+    u64 ii = fs_alloc_block(&fs);
+    
+    // TODO: Test!!!
+    fs_resize_inode(&fs, ii, 512 * 130);
+    fs_resize_inode(&fs, ii, 512 * 8);
 
 #if 0
     // Write
@@ -151,7 +153,7 @@ void kmain(struct multiboot_information *mb_info)
     ctx.rsp = (u64)user_stack;
     ctx.ds = (3 << 3) | 3;
 
-    intr_enable();
+    //intr_enable();
     //switch_context(&ctx);
 
     // Wait for interrupts

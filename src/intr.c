@@ -360,7 +360,7 @@ void pic_eoi(u8 irq)
  * context: saved cpu context
  * code: number of interrupt/exception
 */
-struct cpu_context* intr_handler(struct cpu_context* saved_context, u64 code)
+struct cpu_context* intr_handler(struct cpu_context* saved_context, u64 code, struct interrupt_context *interrupt_context)
 {
     kprintf("Interrupt [%d]\n", code);
 
