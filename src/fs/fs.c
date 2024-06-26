@@ -113,7 +113,7 @@ static u64 fs_write_inode(struct fs *fs, u64 inode_index, struct inode *local)
     return 0;
 }
 
-static u64 fs_which_layer_inode(u64 offset)
+static i64 fs_which_layer_inode(i64 offset)
 {
     if(offset > FS_NUM_BLOCKS * 64 * 512)
     {
@@ -122,7 +122,7 @@ static u64 fs_which_layer_inode(u64 offset)
     return offset / (64 * 512);
 }
 
-static u64 fs_which_block_inode(u64 layer, u64 offset)
+static i64 fs_which_block_inode(i64 layer, i64 offset)
 {
     if(offset > FS_NUM_BLOCKS * 64 * 512 || layer > (FS_NUM_BLOCKS - 1))
     {
@@ -138,17 +138,20 @@ u64 fs_resize_inode(struct fs *fs, u64 inode_index, u64 new_size)
     struct inode local;
     fs_load_inode(fs, inode_index, &local);
     // Current file size
-    u64 cur_size = local.file_size;
+    i64 cur_size = (i64)local.file_size;
     // Layers
-    u64 cur_layer = fs_which_layer_inode(cur_size);
-    u64 new_layer = fs_which_layer_inode(new_size);
+    i64 cur_layer = fs_which_layer_inode(cur_size);
+    i64 new_layer = fs_which_layer_inode(new_size);
     // Blocks
-    u64 cur_block = fs_which_block_inode(cur_layer, cur_size);
-    u64 new_block = fs_which_block_inode(new_layer, new_size);
+    i64 cur_block = fs_which_block_inode(cur_layer, cur_size);
+    i64 new_block = fs_which_block_inode(new_layer, new_size);
 
     // Set new size
     local.file_size = new_size;
     
+    // Block that contains pointers
+    u64 b[64];
+
     // Handle simple case first
     if(new_layer == cur_layer)
     {
@@ -160,9 +163,7 @@ u64 fs_resize_inode(struct fs *fs, u64 inode_index, u64 new_size)
         if(new_block > cur_block)
         {
             // Block that contains pointers
-            u64 b[64];
             u64 bidx = local.data_blocks[cur_layer];
-
             // Allocate block if not already done
             if(bidx == 0)
                 bidx = fs_alloc_block(fs);
@@ -172,7 +173,7 @@ u64 fs_resize_inode(struct fs *fs, u64 inode_index, u64 new_size)
             // Read current block from disk
             virtio_block_dev_read(fs->blk_dev, bidx, (u8*)&b, 1);
             // Alloc new blocks
-            for(u64 i = cur_block; i < new_block; i++)
+            for(i64 i = cur_block; i < new_block; i++)
             {
                 b[i] = fs_alloc_block(fs);
             }
@@ -184,12 +185,11 @@ u64 fs_resize_inode(struct fs *fs, u64 inode_index, u64 new_size)
         if(new_block < cur_block)
         {
             // Block that contains pointers
-            u64 b[64];
             u64 bidx = local.data_blocks[cur_layer];
             // Read current block from disk
             virtio_block_dev_read(fs->blk_dev, bidx, (u8*)&b, 1);
             // Free blocks
-            for(u64 i = new_block; i < cur_block; i++)
+            for(i64 i = new_block; i < cur_block; i++)
             {
                 fs_free_block(fs, b[i]);
                 b[i] = 0; // Mark as free
@@ -202,10 +202,8 @@ u64 fs_resize_inode(struct fs *fs, u64 inode_index, u64 new_size)
     // Allocate 
     if(new_layer > cur_layer)
     {
-        // Block that contains pointers
-        u64 b[64];
         // Loop over layers
-        for(u64 i = cur_layer; i <= new_layer; i++)
+        for(i64 i = cur_layer; i <= new_layer; i++)
         {
             // Block id
             u64 bidx = local.data_blocks[i];
@@ -224,7 +222,7 @@ u64 fs_resize_inode(struct fs *fs, u64 inode_index, u64 new_size)
                 // Read current block from disk
                 virtio_block_dev_read(fs->blk_dev, bidx, (u8*)&b, 1);
                 // Alloc blocks
-                for(u64 j = cur_block; j < 64; j++)
+                for(i64 j = cur_block; j < 64; j++)
                 {
                     b[j] = fs_alloc_block(fs);
                 }
@@ -238,7 +236,7 @@ u64 fs_resize_inode(struct fs *fs, u64 inode_index, u64 new_size)
                 // Read current block from disk
                 virtio_block_dev_read(fs->blk_dev, bidx, (u8*)&b, 1);
                 // Alloc blocks
-                for(u64 j = 0; j < 64; j++)
+                for(i64 j = 0; j < 64; j++)
                 {
                     b[j] = fs_alloc_block(fs);
                 }
@@ -252,7 +250,7 @@ u64 fs_resize_inode(struct fs *fs, u64 inode_index, u64 new_size)
                 // Read current block from disk
                 virtio_block_dev_read(fs->blk_dev, bidx, (u8*)&b, 1);
                 // Alloc blocks
-                for(u64 j = 0; j < new_block; j++)
+                for(i64 j = 0; j < new_block; j++)
                 {
                     b[j] = fs_alloc_block(fs);
                 }
@@ -265,10 +263,8 @@ u64 fs_resize_inode(struct fs *fs, u64 inode_index, u64 new_size)
     // Free
     if(new_layer < cur_layer)
     {
-        // Block that contains pointers
-        u64 b[64];
         // Loop over layers
-        for(u64 i = cur_layer; i >= new_layer; i--)
+        for(i64 i = cur_layer; i >= new_layer; i--)
         {
             // Block id
             u64 bidx = local.data_blocks[i];
@@ -279,7 +275,7 @@ u64 fs_resize_inode(struct fs *fs, u64 inode_index, u64 new_size)
                 // Read current block from disk
                 virtio_block_dev_read(fs->blk_dev, bidx, (u8*)&b, 1);
                 // Free blocks
-                for(u64 j = 0; j < cur_block; j++)
+                for(i64 j = 0; j < cur_block; j++)
                 {
                     fs_free_block(fs, b[j]);
                     b[j] = 0; // Mark as free
@@ -297,7 +293,7 @@ u64 fs_resize_inode(struct fs *fs, u64 inode_index, u64 new_size)
                 // Read current block from disk
                 virtio_block_dev_read(fs->blk_dev, bidx, (u8*)&b, 1);
                 // Free all blocks
-                for(u64 j = 0; j < 64; j++)
+                for(i64 j = 0; j < 64; j++)
                 {
                     fs_free_block(fs, b[j]);
                     b[j] = 0; // Mark as free
@@ -316,7 +312,7 @@ u64 fs_resize_inode(struct fs *fs, u64 inode_index, u64 new_size)
                 // Read current block from disk
                 virtio_block_dev_read(fs->blk_dev, bidx, (u8*)&b, 1);
                 // Free blocks
-                for(u64 j = 63; j >= new_block; j--)
+                for(i64 j = 63; j >= new_block; j--)
                 {
                     fs_free_block(fs, b[j]);
                     b[j] = 0; // Mark as free

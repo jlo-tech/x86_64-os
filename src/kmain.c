@@ -153,7 +153,7 @@ void kmain(struct multiboot_information *mb_info)
     ctx.rsp = (u64)user_stack;
     ctx.ds = (3 << 3) | 3;
 
-    //intr_enable();
+    intr_enable();
     //switch_context(&ctx);
 
     // Wait for interrupts
