@@ -4,6 +4,7 @@
 #include <pit.h>
 #include <pci.h>
 #include <intr.h>
+#include <kernel.h>
 #include <syscalls.h>
 #include <user_mode.h>
 
@@ -94,6 +95,7 @@ void kmain(struct multiboot_information *mb_info)
 
     pci_scan();
 
+    // TODO: Find PCI device by vendor id
     pci_dev_t pci_dev = {.bus = 0x0, .dev = 0x4, .fun = 0x0};
     virtio_dev_t virtio_dev;
     virtio_blk_dev_t blk_dev;
@@ -104,30 +106,10 @@ void kmain(struct multiboot_information *mb_info)
     struct fs fs;
 
     fs_init(&fs, &blk_dev);
-    u64 ii = fs_alloc_block(&fs);
-    
-    // TODO: Test!!!
-    fs_resize_inode(&fs, ii, 512 * 130);
-    fs_resize_inode(&fs, ii, 512 * 8);
 
-#if 0
-    // Write
-    u8 *data_out = (u8*)align(kmalloc(4096), 4096);
-    bzero(data_out, 512);
+    // TODO: Test fs
 
-    data_out[0] = 'O';
-    data_out[1] = 'k';
 
-    virtio_block_dev_write(&blk_dev, 0, data_out, 1);
-
-    // Read
-    u8 *data_in = (u8*)align(kmalloc(4096), 4096);
-    bzero(data_in, 512);
-
-    virtio_block_dev_read(&blk_dev, 0, data_in, 1);
-
-    kprintf("%s\n", data_in);
-#endif
 
     // Enable syscalls
     syscalls_setup();

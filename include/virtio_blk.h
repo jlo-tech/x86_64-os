@@ -29,6 +29,14 @@ typedef struct virtio_blk_dev
     virtio_dev_t *virtio_dev;
 } virtio_blk_dev_t;
 
+// Init block device
 bool virtio_block_dev_init(virtio_blk_dev_t *blk_dev, virtio_dev_t *virtio_dev);
+// Read/Write multiple sectors
 bool virtio_block_dev_write(virtio_blk_dev_t *blk_dev, u64 sector, u8 *data, u64 num_sectors);
 bool virtio_block_dev_read(virtio_blk_dev_t *blk_dev, u64 sector, u8 *data, u64 num_sectors);
+// Read/Write single sector
+bool virtio_block_dev_write_block(virtio_blk_dev_t *blk_dev, u64 sector, u8 *data);
+bool virtio_block_dev_read_block(virtio_blk_dev_t *blk_dev, u64 sector, u8 *data);
+// Clear single sector
+bool virtio_block_dev_zero(virtio_blk_dev_t *blk_dev, u64 sector);
+

@@ -4,15 +4,34 @@
 #include <types.h>
 #include <virtio_blk.h>
 
-#define BLOCK_FREE 0
-#define BLOCK_USED 1
+#define FS_BLOCK_FREE 0
+#define FS_BLOCK_USED 1
 
-#define TYPE_DIRECTORY 0
-#define TYPE_FILE      1
+#define FS_TYPE_DIRECTORY 0
+#define FS_TYPE_FILE      1
 
-#define FS_ERROR 0xFFFFFFFFFFFFFFFF
+#define FS_ERROR (-1)
 
-#define FS_NUM_BLOCKS 62
+// Physical sector size of disk
+#define FS_SECTOR_SIZE 512
+
+// Number of sectors that form a fs block
+#define FS_FACTOR 8
+
+// One fs block (4kb) contains eight disk sectors (512b)
+#define FS_BLOCK_SIZE (FS_FACTOR * FS_SECTOR_SIZE)
+
+// Length of names
+#define FS_NAME_LEN 120
+
+// Pad structures to given size
+#define FS_PADDING(total, consumed) u8 __pad[total - consumed]
+
+// How many elements of size "size" can fit into space "total" when "consumed" is already occupied
+#define FS_FILL(total, consumed, size) ((total - consumed) / size)
+
+// Number of trees per inode
+#define FS_TREES FS_FILL(FS_BLOCK_SIZE, 16, 8)
 
 /* 
  *  Disk Layout:
@@ -26,45 +45,36 @@
  *  + ---------------------------- |
  */
 
-// Data structures
-
 struct superblock
 {
-    u64 disk_size;              // Size of the whole disk (in 512 byte blocks)
-    u64 block_map_size;         // Size of the map which marks blocks as free/used (in blocks) (equals disk_size / 512)
-    u64 num_blocks;             // Number of allocated blocks and inodes
-    u64 root_dir_inode_index;   // Block index of inode of root dir
-    u8 padding[480];            // Padding to fill one sector
-} __attribute__((packed));
+    i64 disk_size;              // Size of the whole disk (in bytes)
+    i64 bitmap_size;            // Size of the map which marks blocks as free/used (in bytes)
+    i64 root_dir_inode_index;   // Block index of inode of root dir
 
-struct dir_entry
-{
-    u64 inode_index;            // Inode index of 0 is invalid and means entry not valid
-    char file_name[120];
+    FS_PADDING(FS_BLOCK_SIZE, 24);
+
 } __attribute__((packed));
 
 struct inode
 {
-    u64 type;                       // file / dir (when file: data blocks contain file content, 
+    i64 type;                       // file / dir (when file: data blocks contain file content, 
                                     //             when dir: data blocks contain dir_entry descriptors)
-    u64 file_size;                  // in bytes
-    u64 data_blocks[FS_NUM_BLOCKS]; // pointers to data blocks which contain pointers to data blocks
+    i64 file_size;                  // in bytes
+    i64 data_blocks[FS_TREES];      // pointers to data blocks which contain pointers to data blocks
 } __attribute__((packed));
 
-// Management structures
+struct dir_entry
+{
+    i64 inode_index;                // Inode index of 0 is invalid and means entry not valid
+    char file_name[FS_NAME_LEN];
+} __attribute__((packed));
 
 struct fs
 {
-    virtio_blk_dev_t *blk_dev;  // Virtio block device
-    struct superblock sb_cache; // Cached superblock
+    virtio_blk_dev_t *blk_dev;      // Virtio block device
+    struct superblock sb_cache;     // Cached superblock
 };
 
-// Methods
-
 // Init superblock and initialize root dir
-void fs_init(struct fs *fs, virtio_blk_dev_t *blk_dev);
+bool fs_init(struct fs *fs, virtio_blk_dev_t *blk_dev);
 
-u64 fs_alloc_block(struct fs *fs);
-u64 fs_free_block(struct fs *fs, u64 block_index);
-
-u64 fs_resize_inode(struct fs *fs, u64 inode_index, u64 new_size);

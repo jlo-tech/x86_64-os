@@ -22,7 +22,12 @@ struct ktree_node
     struct ktree_node *parent;
 } __attribute__((packed));
 
+/* GP methods */
 void bzero(u8 *mem, u64 size);
+void memcpy(void *dst, void *src, size_t sz);
+size_t strlen(char *str);
+size_t min(size_t a, size_t b);
+size_t max(size_t a, size_t b);
 
 bool ktree_empty(struct ktree *root);
 

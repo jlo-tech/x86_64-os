@@ -16,3 +16,5 @@ typedef signed char         i8;
 typedef signed short        i16;
 typedef signed int          i32;
 typedef signed long long    i64;
+
+typedef unsigned long long  size_t;

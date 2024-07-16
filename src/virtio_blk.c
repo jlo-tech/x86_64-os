@@ -114,3 +114,22 @@ bool virtio_block_dev_read(virtio_blk_dev_t *blk_dev, u64 sector, u8 *data, u64 
 
     return true;
 }
+
+/* Write one block */
+inline bool virtio_block_dev_write_block(virtio_blk_dev_t *blk_dev, u64 sector, u8 *data)
+{
+    return virtio_block_dev_write(blk_dev, sector, data, 1);
+}
+
+/* Read one block */
+inline bool virtio_block_dev_read_block(virtio_blk_dev_t *blk_dev, u64 sector, u8 *data)
+{
+    return virtio_block_dev_read(blk_dev, sector, data, 1);
+}
+
+/* Zeros out one block */
+bool virtio_block_dev_zero(virtio_blk_dev_t *blk_dev, u64 sector)
+{
+    unsigned char data[512] = {0};
+    return virtio_block_dev_write(blk_dev, sector, data, 1);
+}

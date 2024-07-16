@@ -8,6 +8,43 @@ void bzero(u8 *mem, u64 size)
     }
 }
 
+void memcpy(void *dst, void *src, size_t sz)
+{
+    u8* bdst = (u8*)dst;
+    u8* bsrc = (u8*)src;
+
+    for(size_t i = 0; i < sz; i++)
+    {
+        bdst[i] = bsrc[i];
+    }
+}
+
+size_t strlen(char *str)
+{
+    size_t c = 0;
+
+    while(*str != 0) {    
+        c++;
+        str++;
+    };
+    
+    return c;
+}
+
+size_t min(size_t a, size_t b)
+{
+    if(a < b)
+        return a;
+    return b;
+}
+
+size_t max(size_t a, size_t b)
+{
+    if(a > b)
+        return a;
+    return b;
+}
+
 struct ktree_node* ktree_leftmost(struct ktree_node *root)
 {
     struct ktree_node *curr = root;
