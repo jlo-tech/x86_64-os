@@ -81,9 +81,8 @@ void kmain(struct multiboot_information *mb_info)
     kprintf("Kernel start %d\n", kernel_base_addr);
     kprintf("Kernel limit %d\n", kernel_limit_addr);
 
-    // Enable local interrupts
+    // Setup local interrupts
     intr_setup();
-    //intr_enable();
 
     // Enable external interrupts
     pic_init();
@@ -103,13 +102,25 @@ void kmain(struct multiboot_information *mb_info)
     virtio_dev_init(&virtio_dev, &pci_dev, 1);
     virtio_block_dev_init(&blk_dev, &virtio_dev);
 
+   
+    // TODO: Test fs...
     struct fs fs;
 
     fs_init(&fs, &blk_dev);
 
-    // TODO: Test fs
+    i64 r;
 
+    for(int i = 0; i < 40; i++)
+    {
+        r = fs_alloc(&fs);
+        kprintf("FS code: %d\n", r);
+    }
 
+    for(int i = 2; i <= 42; i++)
+    {
+        r = fs_free(&fs, i);
+        kprintf("FS del code: %d\n", r);
+    }
 
     // Enable syscalls
     syscalls_setup();
@@ -135,7 +146,7 @@ void kmain(struct multiboot_information *mb_info)
     ctx.rsp = (u64)user_stack;
     ctx.ds = (3 << 3) | 3;
 
-    intr_enable();
+    //intr_enable();
     //switch_context(&ctx);
 
     // Wait for interrupts

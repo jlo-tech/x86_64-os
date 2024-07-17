@@ -86,6 +86,9 @@ bool fs_read(struct fs *fs, i64 index, u8 *data)
  */
 i64 fs_alloc(struct fs *fs)
 {
+    // Err
+    bool r;
+
     // Local pointer to tmp
     i64 *loc = (i64*)&tmp;
 
@@ -93,25 +96,38 @@ i64 fs_alloc(struct fs *fs)
     for(i64 i = 0; i < (fs->sb_cache.bitmap_size / FS_BLOCK_SIZE); i++)
     {
         // Read bitmap block
-        fs_read(fs, 1 + i, tmp);    // Skip superblock
-        //uFind free block
-        for(i64 j = 0; j < FS_BLOCK_SIZE / 8; j++)
+        r = fs_read(fs, 1 + i, tmp);    // Skip superblock
+        if(!r)
+            return false;
+
+        // Find free block
+        for(i64 j = 0; j < (FS_BLOCK_SIZE >> 3); j++)
         {
             // Check if there is a free entry
-            if(loc[j] != (i64)0xFFFFFFFFFFFFFFFF)
+            if(loc[j] == (i64)0xFFFFFFFFFFFFFFFF)
             {
                 continue;
             }
+
             // Get next free entry
             i64 pos = 0;
             if(loc[j] != 0)
             {
                 pos = __builtin_ffsll(~loc[j]) - 1;
             }
+
+            // Mark entry as used
+            loc[j] |= (((i64)1) << pos);
+
+            // Write back
+            r = fs_write(fs, 1 + i, tmp);
+            if(!r)
+                return false;
+
             // Return fs block index
             return 1 + 
                    (fs->sb_cache.bitmap_size / FS_BLOCK_SIZE) + 
-                   (i * FS_BLOCK_SIZE * 8) + 
+                   (i * FS_BLOCK_SIZE << 3) + 
                    (j * 64) + pos;
         }
     } 
@@ -133,17 +149,17 @@ i64 fs_free(struct fs *fs, i64 index)
     i64 pos   = ind % 64;
 
     // Load block
-    r = fs_read(fs, block + 1 + (fs->sb_cache.bitmap_size / FS_BLOCK_SIZE), (u8*)&tmp);    
+    r = fs_read(fs, block + 1, (u8*)&tmp);    
     // Error check
     if(!r)
         return FS_ERROR;
 
     // Mark as free again
     i64 *loc = (i64*)&tmp; 
-    loc[word] = loc[word] & ~(1 << pos);
+    loc[word] = loc[word] & ~(((i64)1) << pos);
     
     // Write back
-    r = fs_write(fs, block + 1 + (fs->sb_cache.bitmap_size / FS_BLOCK_SIZE), (u8*)&tmp);
+    r = fs_write(fs, block + 1, (u8*)&tmp);
     // Error check
     if(!r)
         return FS_ERROR;
@@ -187,7 +203,8 @@ bool fs_init(struct fs *fs, virtio_blk_dev_t *blk_dev)
         return false; 
     // Zero out root inode
     bzero((u8*)&tmp, FS_BLOCK_SIZE);
-    fs_write(fs, r, (u8*)&tmp);
+    if(!fs_write(fs, r, (u8*)&tmp))
+        return false;
 
     // Write super block to start of the disk
     return fs_write(fs, 0, (u8*)&fs->sb_cache);

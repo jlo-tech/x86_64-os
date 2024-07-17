@@ -78,3 +78,8 @@ struct fs
 // Init superblock and initialize root dir
 bool fs_init(struct fs *fs, virtio_blk_dev_t *blk_dev);
 
+bool fs_write(struct fs *fs, i64 index, u8 *data);
+
+i64 fs_alloc(struct fs *fs);
+i64 fs_free(struct fs *fs, i64 index);
+
