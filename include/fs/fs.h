@@ -30,9 +30,6 @@
 // How many elements of size "size" can fit into space "total" when "consumed" is already occupied
 #define FS_FILL(total, consumed, size) ((total - consumed) / size)
 
-// Number of trees per inode
-#define FS_TREES FS_FILL(FS_BLOCK_SIZE, 16, 8)
-
 /* 
  *  Disk Layout:
  *  
@@ -57,10 +54,13 @@ struct superblock
 
 struct inode
 {
-    i64 type;                       // file / dir (when file: data blocks contain file content, 
+    i64 type;                       // File / dir (when file: data blocks contain file content, 
                                     //             when dir: data blocks contain dir_entry descriptors)
-    i64 file_size;                  // in bytes
-    i64 data_blocks[FS_TREES];      // pointers to data blocks which contain pointers to data blocks
+    i64 file_size;                  // In bytes
+    i64 data_tree;                  // Pointer to root block of 4-level tree 
+
+    FS_PADDING(FS_BLOCK_SIZE, 24);
+
 } __attribute__((packed));
 
 struct dir_entry
@@ -78,8 +78,8 @@ struct fs
 // Init superblock and initialize root dir
 bool fs_init(struct fs *fs, virtio_blk_dev_t *blk_dev);
 
-bool fs_write(struct fs *fs, i64 index, u8 *data);
-
 i64 fs_alloc(struct fs *fs);
 i64 fs_free(struct fs *fs, i64 index);
 
+i64 fs_inode_alloc(struct fs *fs, i64 inode_index, i64 block_index);
+i64 fs_inode_free(struct fs *fs, i64 inode_index, i64 block_index);
