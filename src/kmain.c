@@ -107,12 +107,15 @@ void kmain(struct multiboot_information *mb_info)
     struct fs fs;
 
     fs_init(&fs, &blk_dev);
-
-    // TODO: Test inode_alloc / inode_free
-    
-    // TODO: Works but needs more tests...
+   
+    // TODO: Works...
+    // Alloc
     fs_inode_alloc(&fs, fs.sb_cache.root_dir_inode_index, 0);
-
+    fs_inode_alloc(&fs, fs.sb_cache.root_dir_inode_index, 1);
+    fs_inode_alloc(&fs, fs.sb_cache.root_dir_inode_index, 2);
+    fs_inode_alloc(&fs, fs.sb_cache.root_dir_inode_index, 5);
+    // Free
+    fs_inode_free(&fs, fs.sb_cache.root_dir_inode_index, 2);
 
     // Enable syscalls
     syscalls_setup();

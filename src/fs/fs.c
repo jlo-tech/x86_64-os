@@ -201,7 +201,7 @@ i64 __fs_inode_alloc(struct fs *fs, struct inode *inode, i64 block_index)
         fs_read(fs, bx, (u8*)&tmp);
 
         // Get pointer to next layer
-        off = shift * i;
+        off = shift * (3 - i);
         stub = (block_index & (mask << off)) >> off;
         next = loc[stub];
 
@@ -262,7 +262,7 @@ i64 __fs_inode_free(struct fs *fs, struct inode *inode, i64 block_index)
     const i64 mask  = ((i64)511);
     const i64 shift = ((i64)9);
   
-    i64 off, stub, next;  
+    i64 off, stub, next, backup;  
 
     // Local pointer
     i64 *loc = (i64*)&tmp;  
@@ -276,12 +276,15 @@ i64 __fs_inode_free(struct fs *fs, struct inode *inode, i64 block_index)
         // Load current layer block
         fs_read(fs, bx, (u8*)&tmp);
 
+        // Backup old bx
+        backup = bx;
+
         // Get pointer to next layer
-        off = shift * i;
+        off = shift * (3 - i);
         stub = (block_index & (mask << off)) >> off;
         next = loc[stub];
         
-        // Allocate new block if not already done
+        // If block was never allocated return error
         if(next == 0)
         {
             // Block was not allocated
@@ -294,6 +297,8 @@ i64 __fs_inode_free(struct fs *fs, struct inode *inode, i64 block_index)
 
     // Remove from inode
     loc[stub] = 0;
+    // And write changes to disk
+    fs_write(fs, backup, (u8*)&tmp);
     // Mark block as free 
     fs_free(fs, bx);
 
