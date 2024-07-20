@@ -45,6 +45,13 @@ size_t max(size_t a, size_t b)
     return b;
 }
 
+i64 abs(i64 x)
+{
+    if(x < 0)
+        return -x;
+    return x;
+}
+
 struct ktree_node* ktree_leftmost(struct ktree_node *root)
 {
     struct ktree_node *curr = root;

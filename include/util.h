@@ -28,6 +28,7 @@ void memcpy(void *dst, void *src, size_t sz);
 size_t strlen(char *str);
 size_t min(size_t a, size_t b);
 size_t max(size_t a, size_t b);
+i64 abs(i64 x);
 
 bool ktree_empty(struct ktree *root);
 
