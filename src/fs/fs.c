@@ -319,9 +319,145 @@ i64 fs_inode_free(struct fs *fs, i64 inode_index, i64 block_index)
 }
 
 /**
+ * Resize inode 
+ *
+ * @param inode_index Inode index
+ * @param size The size of the inode in bytes
+ *
+ * @return New size or error
+ */
+i64 fs_inode_resize(struct fs *fs, i64 inode_index, i64 size)
+{
+    // Read inode from disk
+    bool b = fs_read(fs, inode_index, (u8*)&tmp);
+    // Err check
+    if(!b)
+        return FS_ERROR;
+
+    // Pointer to inode
+    struct inode *inode = (struct inode*)&tmp;
+
+    // Allready allocated blocks
+    i64 aab = inode->file_size / FS_BLOCK_SIZE;
+    
+    if((inode->file_size % FS_BLOCK_SIZE) != 0)
+        aab++;
+
+    // Blocks needed for the inode when set to new size
+    i64 new_blocks = size / FS_BLOCK_SIZE;
+
+    if((size % FS_BLOCK_SIZE) != 0)
+        new_blocks++;
+
+    // Diff between current blocks and needed blocks
+    i64 block_diff = new_blocks - aab;
+
+    // Do allocations
+    if(block_diff > 0)
+    {
+        // Allocate additional blocks
+        for(i64 i = 0; i < block_diff; i++)
+        {
+            i64 r = fs_inode_alloc(fs, inode_index, aab + i); 
+            if(r == FS_ERROR)
+                return FS_ERROR;
+        }
+    }
+
+    // Do frees
+    if(block_diff < 0)
+    {
+        // Free not needed blocks
+        for(i64 i = 0; i < abs(block_diff); i++)
+        {
+            i64 r = fs_inode_free(fs, inode_index, (aab - 1) - i);
+            if(r == FS_ERROR)
+                return FS_ERROR;
+        }
+    }
+    
+    // Write back new size
+    fs_read(fs, inode_index, (u8*)&tmp);
+    inode->file_size = size;
+    fs_write(fs, inode_index, (u8*)&tmp);
+
+    // If no errors then return new size
+    return size;
+}
+
+/**
+ * Returns the index of the nth block in an inode
+ *
+ * @param inode_index Index of inode
+ * @param n Nth block of the inode to be returned
+ *
+ * @return Returns position of the nth block in the inode or error
+ */
+i64 fs_inode_nth_block(struct fs *fs, i64 inode_index, i64 n)
+{
+    const i64 mask  = ((i64)511);
+    const i64 shift = ((i64)9);
+    
+    i64 off, stub, next;
+
+    // Local pointer
+    i64 *loc = (i64*)&tmp;  
+    struct inode *inode = (struct inode*)&tmp;
+
+    // Load inode
+    fs_read(fs, inode_index, (u8*)tmp);
+
+    // Current block index
+    i64 bx = inode->data_tree;
+
+    // Traverse tree
+    for(i64 i = 0; i < 4; i++)
+    {
+        // Load current layer block
+        fs_read(fs, bx, (u8*)&tmp);
+
+        // Get pointer to next layer
+        off = shift * (3 - i);
+        stub = (n & (mask << off)) >> off;
+        next = loc[stub];
+
+        // Block not allocated
+        if(next == 0)
+            return FS_ERROR;        
+        
+        // Continue with next layer
+        bx = next;
+    }
+ 
+    // Return nth block index
+    return bx;
+}
+
+/**
+ * Returns inode index of the object with name "name".
+ * NOTE: This method only searches in the given inode
+ *       and makes no path traversal.
+ *
+ * @param inode_index Index of the inode to search in
+ * @param name The name of the directoy/file we want the inode for
+ *
+ * @return Inode index of the requested object 
+ */
+i64 fs_inode_query_name(struct fs *fs, i64 inode_index, char* name)
+{
+    // Check if inode is a directory
+
+    // Read block by block with fs_inode_nth_block()
+    
+    // Search in block for entry with entry name that matches "name"
+
+    // Return entry index or error
+}
+
+/**
  * Calculates the size of the needed bitmap in bytes
  */
-i64 __bitmap_size(i64 disk_size, i64 block_size)
+static i64 __bitmap_size(i64 disk_size, i64 block_size)
 {    
     i64 bits_per_block = block_size << 3;
     i64 total_blocks = disk_size / block_size;

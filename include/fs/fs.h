@@ -83,3 +83,6 @@ i64 fs_free(struct fs *fs, i64 index);
 
 i64 fs_inode_alloc(struct fs *fs, i64 inode_index, i64 block_index);
 i64 fs_inode_free(struct fs *fs, i64 inode_index, i64 block_index);
+i64 fs_inode_resize(struct fs *fs, i64 inode_index, i64 size);
+i64 fs_inode_nth_block(struct fs *fs, i64 inode_index, i64 n);
+
