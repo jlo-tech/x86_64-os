@@ -170,6 +170,13 @@ i64 fs_free(struct fs *fs, i64 index)
     if(!r)
         return FS_ERROR;
 
+    // Zero out block to prevent data leaks and  
+    // keep blocks clean when allocated to be pointer blocks
+    bzero((u8*)&tmp, FS_BLOCK_SIZE);
+    r = fs_write(fs, index, (u8*)&tmp);
+    if(!r)
+        return FS_ERROR;
+
     return index;
 }
 
@@ -229,6 +236,12 @@ i64 __fs_inode_alloc(struct fs *fs, struct inode *inode, i64 block_index)
     return bx;
 }
 
+/**
+ * Allocated new blocks to an inode
+ *
+ * @param block_index A new block is allocated for the "block_index"th block on the inode
+ *
+ */
 i64 fs_inode_alloc(struct fs *fs, i64 inode_index, i64 block_index)
 {
     // Pointer to inode
@@ -255,20 +268,38 @@ i64 fs_inode_alloc(struct fs *fs, i64 inode_index, i64 block_index)
 }
 
 /**
+ * Checks if a block only contains zeros
+ *
+ * @param block Pointer to block in memory
+ */
+static bool __fs_block_all_zeros(i64 *block)
+{
+    for(i64 i = 0; i < (FS_BLOCK_SIZE >> 3); i++)
+    {
+        if(block[i] != 0)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
  * Removes block from inode and marks it as free 
  */
-i64 __fs_inode_free(struct fs *fs, struct inode *inode, i64 block_index)
+i64 __fs_inode_free(struct fs *fs, i64 inode_data_tree, i64 inode_index, i64 block_index)
 {
     const i64 mask  = ((i64)511);
     const i64 shift = ((i64)9);
   
-    i64 off, stub, next, backup;  
+    i64 off, next, trace[4], stubs[4];  
 
     // Local pointer
     i64 *loc = (i64*)&tmp;  
 
     // Current block index
-    i64 bx = inode->data_tree;
+    i64 bx = inode_data_tree;
 
     // Traverse tree
     for(i64 i = 0; i < 4; i++)
@@ -276,14 +307,14 @@ i64 __fs_inode_free(struct fs *fs, struct inode *inode, i64 block_index)
         // Load current layer block
         fs_read(fs, bx, (u8*)&tmp);
 
-        // Backup old bx
-        backup = bx;
+        // Save traversed blocks in trace array 
+        trace[i] = bx;
 
         // Get pointer to next layer
         off = shift * (3 - i);
-        stub = (block_index & (mask << off)) >> off;
-        next = loc[stub];
-        
+        stubs[i] = (block_index & (mask << off)) >> off;
+        next = loc[stubs[i]];
+
         // If block was never allocated return error
         if(next == 0)
         {
@@ -296,11 +327,61 @@ i64 __fs_inode_free(struct fs *fs, struct inode *inode, i64 block_index)
     }
 
     // Remove from inode
-    loc[stub] = 0;
+    loc[stubs[3]] = 0;
     // And write changes to disk
-    fs_write(fs, backup, (u8*)&tmp);
+    fs_write(fs, trace[3], (u8*)&tmp);
     // Mark block as free 
-    fs_free(fs, bx);
+    fs_free(fs, bx); 
+
+    // Iterate through previously created array and free blocks that could be freed
+    //  1. Read block
+    //  2. Check if it only contains 0s
+    //  3. If so free that block by writing 0 to higher level block
+    //  4. If not abort cause nothing more to do
+    //  Start at 1. for next level
+    // Write 0 to inode's data tree or to highest level block which has not be freed
+   
+    // Reload block polluted by fs_free
+    fs_read(fs, trace[3], (u8*)&tmp);
+
+    for(i64 i = 3; i > 0; i--)
+    {
+        // Last block was alredy read by previous loop / iteration
+        if(__fs_block_all_zeros(loc))
+        {
+            // Mark block as free again
+            fs_free(fs, trace[i]);
+            // Read higher level block
+            fs_read(fs, trace[i-1], (u8*)&tmp);
+            // Mark entry for lower level block as zero
+            loc[stubs[i-1]] = 0;
+            // Write back to disk
+            fs_write(fs, trace[i-1], (u8*)&tmp);
+        }
+        else
+        {
+            // If this block is not zero we also cannot free higher levels
+            goto __fs_inode_free_end;
+        }      
+    }
+
+    // Check highest level block
+    struct inode *inode = (struct inode*)&tmp;
+    if(__fs_block_all_zeros(loc))
+    {
+        // Load inode
+        fs_read(fs, inode_index, (u8*)&tmp);
+        // Mark block as free
+        fs_free(fs, inode->data_tree);
+        // Reload (by fs_free) polluted block
+        fs_read(fs, inode_index, (u8*)&tmp);
+        // Free
+        inode->data_tree = 0;
+        // Write back to disk
+        fs_write(fs, inode_index, (u8*)&tmp);
+    }
+
+__fs_inode_free_end:
 
     return bx;  
 }
@@ -315,7 +396,7 @@ i64 fs_inode_free(struct fs *fs, i64 inode_index, i64 block_index)
     if(inode->data_tree == 0)
         return FS_ERROR;
     // Do allocation
-    return __fs_inode_free(fs, inode, block_index);
+    return __fs_inode_free(fs, inode->data_tree, inode_index, block_index);
 }
 
 /**
@@ -328,6 +409,10 @@ i64 fs_inode_free(struct fs *fs, i64 inode_index, i64 block_index)
  */
 i64 fs_inode_resize(struct fs *fs, i64 inode_index, i64 size)
 {
+    // Check that inode_index is valid
+    if(inode_index == 0)
+        return FS_ERROR;
+    
     // Read inode from disk
     bool b = fs_read(fs, inode_index, (u8*)&tmp);
     // Err check
@@ -433,6 +518,41 @@ i64 fs_inode_nth_block(struct fs *fs, i64 inode_index, i64 n)
     return bx;
 }
 
+
+// TODO: Test
+
+// String helper methods
+static i64 __fs_strlen(char *s)
+{
+    for(int i = 0; i < FS_NAME_LEN; i++)
+    {
+        if(*s == '\0')
+            return i;
+        s++;
+    }
+
+    return FS_NAME_LEN;
+}
+
+static bool __fs_strcmp(char *s0, char *s1)
+{
+    i64 l0 = __fs_strlen(s0);
+    i64 l1 = __fs_strlen(s1);
+    
+    // Different lengths mean different strings
+    if(l0 != l1)
+       return false;
+
+    for(int i = 0; i < l0; i++)
+    {
+        // Are strings still equal
+        if(s0[i] != s1[i])
+            return false;
+    }
+    // Strings are equal
+    return true;
+}
+
 /**
  * Returns inode index of the object with name "name".
  * NOTE: This method only searches in the given inode
@@ -445,13 +565,82 @@ i64 fs_inode_nth_block(struct fs *fs, i64 inode_index, i64 n)
  */
 i64 fs_inode_query_name(struct fs *fs, i64 inode_index, char* name)
 {
+    // Load inode
+    struct inode *inode = (struct inode*)&tmp;    
+    fs_read(fs, inode_index, (u8*)&tmp);
+        
     // Check if inode is a directory
+    if(inode->type != FS_TYPE_DIRECTORY)
+        return FS_ERROR;
 
-    // Read block by block with fs_inode_nth_block()
+    // Calc number of blocks that need to be traversed
+    i64 trav = inode->file_size / FS_BLOCK_SIZE;
+
+    if((inode->file_size % FS_BLOCK_SIZE) != 0)
+        trav++;
+
+    // Read block by block 
+    for(i64 i = 0; i < trav; i++)
+    {
+        i64 r = fs_inode_nth_block(fs, inode_index, i); 
+        if(r == FS_ERROR)
+            return FS_ERROR;
+        
+        // Search in block for name
+        struct dir_entry *entries = (struct dir_entry*)&tmp;
+        for(i64 j = 0; j < (FS_BLOCK_SIZE / (i64)sizeof(struct dir_entry)); j++)
+        {
+            if(__fs_strcmp(name, entries[i].file_name))
+                return entries[i].inode_index;  
+        }
+    }
+
+    // Entry not found
+    return FS_ERROR;
+}
+
+/**
+ * Checks if the given path is valid
+ * I.e. does it start and end with /
+ * and does not contain //  
+ *
+ * @return Valid path or not
+ */
+static bool __valid_path(char *path)
+{
+    if(path[0] != '/')
+        return false;
     
-    // Search in block for entry with entry name that matches "name"
+    i64 slen = __fs_strlen(path);
 
-    // Return entry index or error
+    if(path[slen-1] != '/')
+        return false;
+
+    for(i64 i = 1; i < slen; i++)
+    {
+        if(path[i-1] == '/' && path[i] == '/')
+            return false;
+    }
+
+    return true;
+}
+
+/**
+ * Get inode (index) by path
+ *
+ * @param path Path
+ *
+ * @return Inode index of the dir/file at the given path
+ */
+i64 fs_inode_query(struct fs *fs, char *path)
+{
+    // Check if path is valid (see helper method)
+
+    // Split path into names (with helper method)
+    
+    // Use fs_inode_query_name to travel through dir structure
+
+    // TODO
 }
 
 /**
@@ -482,18 +671,7 @@ bool fs_init(struct fs *fs, virtio_blk_dev_t *blk_dev)
 
     fs->sb_cache.disk_size = (blk_dev->size * FS_SECTOR_SIZE); 
     fs->sb_cache.bitmap_size = __bitmap_size(fs->sb_cache.disk_size, FS_BLOCK_SIZE);
-
-    // Alloc root inode 
-    i64 r = fs_alloc(fs);
-    if(r == FS_ERROR)
-        return false; 
-    // Zero out root inode
-    bzero((u8*)&tmp, FS_BLOCK_SIZE);
-    if(!fs_write(fs, r, (u8*)&tmp))
-        return false;
-
-    // Set root dir inode
-    fs->sb_cache.root_dir_inode_index = r;
+    fs->sb_cache.root_dir_inode_index = 0;
 
     // Write super block to start of the disk
     return fs_write(fs, 0, (u8*)&fs->sb_cache);
