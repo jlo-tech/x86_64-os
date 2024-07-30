@@ -59,7 +59,9 @@ struct inode
     i64 file_size;                  // In bytes
     i64 data_tree;                  // Pointer to root block of 4-level tree 
 
-    FS_PADDING(FS_BLOCK_SIZE, 24);
+    i64 num_entries;                // Number of entries in dir, ignored in file
+
+    FS_PADDING(FS_BLOCK_SIZE, 32);
 
 } __attribute__((packed));
 
@@ -85,4 +87,7 @@ i64 fs_inode_alloc(struct fs *fs, i64 inode_index, i64 block_index);
 i64 fs_inode_free(struct fs *fs, i64 inode_index, i64 block_index);
 i64 fs_inode_resize(struct fs *fs, i64 inode_index, i64 size);
 i64 fs_inode_nth_block(struct fs *fs, i64 inode_index, i64 n);
+i64 fs_inode_add_entry(struct fs *fs, i64 inode_index, char *name);
+i64 fs_inode_del_entry(struct fs *fs, i64 inode_index, char *name);
+i64 fs_inode_query_name(struct fs *fs, i64 inode_index, char *name);
 

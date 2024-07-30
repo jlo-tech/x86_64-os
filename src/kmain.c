@@ -105,14 +105,14 @@ void kmain(struct multiboot_information *mb_info)
    
     // TODO: Test fs...
     struct fs fs;
+    fs_init(&fs, &blk_dev); 
 
-    fs_init(&fs, &blk_dev);
+    i64 ii = fs_alloc(&fs);
+    fs_inode_add_entry(&fs, ii, "File");
+    fs_inode_add_entry(&fs, ii, "Folder");
+    i64 rfs = fs_inode_del_entry(&fs, ii, "File");
+    kprintf("%d\n", rfs);
 
-    i64 test_inode = fs_alloc(&fs);
-    kprintf("Test inode: %d\n", test_inode);
-    fs_inode_resize(&fs, test_inode, FS_BLOCK_SIZE * 3);
-    fs_inode_resize(&fs, test_inode, FS_BLOCK_SIZE * 0);
-    kprintf("Next block: %d\n", fs_alloc(&fs));
 
     // Enable syscalls
     syscalls_setup();

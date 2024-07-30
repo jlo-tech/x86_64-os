@@ -518,9 +518,6 @@ i64 fs_inode_nth_block(struct fs *fs, i64 inode_index, i64 n)
     return bx;
 }
 
-
-// TODO: Test
-
 // String helper methods
 static i64 __fs_strlen(char *s)
 {
@@ -553,6 +550,210 @@ static bool __fs_strcmp(char *s0, char *s1)
     return true;
 }
 
+static void __fs_strcpy(char *dst, char *src)
+{
+    i64 len = __fs_strlen(src);
+
+    for(i64 i = 0; i < len; i++)
+    {
+        dst[i] = src[i];
+    }
+}
+
+/**
+ * Make entry function
+ *
+ * @param inode_index Index of inode to add entry to
+ * @param name Name of the new entry
+ */
+i64 fs_inode_add_entry(struct fs *fs, i64 inode_index, char *name)
+{
+     // Load inode
+    struct inode *inode = (struct inode*)&tmp;    
+    fs_read(fs, inode_index, (u8*)&tmp);
+        
+    // Check if inode is a directory
+    if(inode->type != FS_TYPE_DIRECTORY)
+        return FS_ERROR;
+
+    // Calc number of blocks that need to be traversed
+    i64 trav = inode->file_size / FS_BLOCK_SIZE;
+
+    if((inode->file_size % FS_BLOCK_SIZE) != 0)
+        trav++;
+
+    // Backup some vars
+    i64 total_size = inode->file_size;
+    i64 num_entries = inode->num_entries;
+    i64 free_space = inode->file_size - (num_entries * sizeof(struct dir_entry));
+    i64 free_entries = free_space / sizeof(struct dir_entry);
+
+    // Pre alloc block
+    i64 nb = fs_alloc(fs);
+
+    // Pointer to entries
+    struct dir_entry *entries = (struct dir_entry*)&tmp;
+
+    // Read block by block 
+    for(i64 i = 0; i < trav; i++)
+    {
+        i64 r = fs_inode_nth_block(fs, inode_index, i); 
+        if(r == FS_ERROR)
+            return FS_ERROR;
+        
+        // Read nth block
+        fs_read(fs, r, (u8*)&tmp);
+        
+        // Check that name does not already exists
+        for(i64 j = 0; j < (FS_BLOCK_SIZE / (i64)sizeof(struct dir_entry)); j++)
+        {
+            if(__fs_strcmp(name, entries[j].file_name))
+            {
+                // Free pre allocted block
+                fs_free(fs, nb);
+                // Return error
+                return FS_ERROR;  
+            }
+        }
+
+        if(free_entries > 0)
+        {
+            // Insert new entry
+            for(i64 j = 0; j < (FS_BLOCK_SIZE / (i64)sizeof(struct dir_entry)); j++)
+            {
+                // Search for free entry
+                if(entries[j].inode_index == 0)
+                {
+                    // Insert entry
+                    entries[j].inode_index = nb;
+                    __fs_strcpy(entries[j].file_name, name);
+                    // Write back to disk
+                    fs_write(fs, r, (u8*)&tmp);
+                    
+                    // Increase inode num_entries counter
+                    fs_read(fs, inode_index, (u8*)&tmp);
+                    inode->num_entries++;
+                    fs_write(fs, inode_index, (u8*)&tmp);
+
+                    return nb;
+                }  
+            }
+        }
+    }
+
+  
+    // Allocate extra space and insert entry there
+    fs_inode_resize(fs, inode_index, total_size + FS_BLOCK_SIZE); 
+
+    // How many blocks will the inode have
+    i64 next_block = total_size / FS_BLOCK_SIZE;
+    if((total_size % FS_BLOCK_SIZE) != 0)
+       next_block++;
+
+    // Get index of next (still free) block
+    i64 next_block_index = fs_inode_nth_block(fs, inode_index, next_block);
+    // Error check
+    if(next_block_index == -1)
+        return FS_ERROR;
+
+    // Clear tmp
+    bzero((u8*)&tmp, FS_BLOCK_SIZE);
+
+    // Insert entry
+    entries[0].inode_index = nb;
+    __fs_strcpy((char*)&entries[0].file_name, name);
+    
+    // Write to disk
+    fs_write(fs, next_block_index, (u8*)&tmp);
+
+    // Increase inode num_entries counter
+    fs_read(fs, inode_index, (u8*)&tmp);
+    inode->num_entries++;
+    fs_write(fs, inode_index, (u8*)&tmp);
+
+    // Entry not found
+    return FS_ERROR;
+}
+
+/**
+ * Delete entry from directory
+ *
+ * @param inode_index The inode that is to be modified
+ * @param name Name of the entry / file / folder to be deleted
+ *
+ */
+i64 fs_inode_del_entry(struct fs *fs, i64 inode_index, char *name)
+{
+     // Load inode
+    struct inode *inode = (struct inode*)&tmp;    
+    fs_read(fs, inode_index, (u8*)&tmp);
+        
+    // Check if inode is a directory
+    if(inode->type != FS_TYPE_DIRECTORY)
+        return FS_ERROR;
+
+    // Calc number of blocks that need to be traversed
+    i64 num_entries = inode->num_entries;
+    i64 trav = (num_entries * sizeof(struct dir_entry)) / FS_BLOCK_SIZE;
+
+    if(((num_entries * sizeof(struct dir_entry)) % FS_BLOCK_SIZE) != 0)
+        trav++;
+
+    // Read block by block 
+    for(i64 i = 0; i < trav; i++)
+    {
+        i64 r = fs_inode_nth_block(fs, inode_index, i); 
+        if(r == FS_ERROR)
+            return FS_ERROR;
+        
+        // Read nth block
+        fs_read(fs, r, (u8*)&tmp);
+
+        // Search in block for name
+        struct dir_entry *entries = (struct dir_entry*)&tmp;
+        for(i64 j = 0; j < (FS_BLOCK_SIZE / (i64)sizeof(struct dir_entry)); j++)
+        {
+            // Stop traversing when all entries are read
+            if((i64)((i * (FS_BLOCK_SIZE / sizeof(struct dir_entry))) + j) >= num_entries)
+                return 0;
+
+            // Check entry
+            if(__fs_strcmp(name, entries[j].file_name))
+            {
+                // Free blocks of inode that should be deleted
+                i64 iitbd = entries[j].inode_index;
+                fs_inode_resize(fs, iitbd, 0);
+                fs_free(fs, iitbd);                 
+                // Read back polluted block
+                fs_read(fs, r, (u8*)&tmp);
+                // Remove entry
+                entries[j].inode_index = 0;
+                bzero((u8*)&entries[j], FS_NAME_LEN);
+                // Write back
+                fs_write(fs, r, (u8*)&tmp);
+                // Check if resize is needed
+                // Get last block and check for entries
+                bool is_empty = true;
+                fs_read(fs, trav-1, (u8*)&tmp);
+                for(i64 k = 0; k < (FS_BLOCK_SIZE / (i64)sizeof(struct dir_entry)); k++)
+                {
+                    if(entries[k].inode_index != 0)
+                    {
+                        return 0;
+                    }
+                }   
+                // Free last block
+                fs_read(fs, inode_index, (u8*)&tmp);
+                fs_inode_resize(fs, inode_index, inode->file_size - FS_BLOCK_SIZE);
+                
+                return 0;
+            }
+        }
+    }
+
+    return FS_ERROR;
+}
+
 /**
  * Returns inode index of the object with name "name".
  * NOTE: This method only searches in the given inode
@@ -574,9 +775,10 @@ i64 fs_inode_query_name(struct fs *fs, i64 inode_index, char* name)
         return FS_ERROR;
 
     // Calc number of blocks that need to be traversed
-    i64 trav = inode->file_size / FS_BLOCK_SIZE;
+    i64 num_entries = inode->num_entries;
+    i64 trav = (num_entries * sizeof(struct dir_entry)) / FS_BLOCK_SIZE;
 
-    if((inode->file_size % FS_BLOCK_SIZE) != 0)
+    if(((num_entries * sizeof(struct dir_entry)) % FS_BLOCK_SIZE) != 0)
         trav++;
 
     // Read block by block 
@@ -586,12 +788,20 @@ i64 fs_inode_query_name(struct fs *fs, i64 inode_index, char* name)
         if(r == FS_ERROR)
             return FS_ERROR;
         
+        // Read nth block
+        fs_read(fs, r, (u8*)&tmp);
+
         // Search in block for name
         struct dir_entry *entries = (struct dir_entry*)&tmp;
         for(i64 j = 0; j < (FS_BLOCK_SIZE / (i64)sizeof(struct dir_entry)); j++)
         {
-            if(__fs_strcmp(name, entries[i].file_name))
-                return entries[i].inode_index;  
+            // Stop traversing when all entries are read
+            if((i64)((i * (FS_BLOCK_SIZE / sizeof(struct dir_entry))) + j) >= num_entries)
+                return FS_ERROR;
+
+            // Check entry
+            if(__fs_strcmp(name, entries[j].file_name))
+                return entries[j].inode_index;  
         }
     }
 
