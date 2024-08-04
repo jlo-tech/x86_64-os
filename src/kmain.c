@@ -108,11 +108,17 @@ void kmain(struct multiboot_information *mb_info)
     fs_init(&fs, &blk_dev); 
 
     i64 ii = fs_alloc(&fs);
-    fs_inode_add_entry(&fs, ii, "File");
+    
+    fs.sb_cache.root_dir_inode_index = ii;
+    
     fs_inode_add_entry(&fs, ii, "Folder");
-    i64 rfs = fs_inode_del_entry(&fs, ii, "File");
-    kprintf("%d\n", rfs);
+    i64 fii = fs_inode_query(&fs, "/Folder");
+    kprintf("%d\n", fii);
 
+    fs_inode_add_entry(&fs, fii, "AnotherFile");
+
+    i64 fiii = fs_inode_query(&fs, "/Folder/AnotherFile");
+    kprintf("%d\n", fiii);
 
     // Enable syscalls
     syscalls_setup();

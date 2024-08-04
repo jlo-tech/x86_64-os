@@ -733,7 +733,6 @@ i64 fs_inode_del_entry(struct fs *fs, i64 inode_index, char *name)
                 fs_write(fs, r, (u8*)&tmp);
                 // Check if resize is needed
                 // Get last block and check for entries
-                bool is_empty = true;
                 fs_read(fs, trav-1, (u8*)&tmp);
                 for(i64 k = 0; k < (FS_BLOCK_SIZE / (i64)sizeof(struct dir_entry)); k++)
                 {
@@ -823,9 +822,6 @@ static bool __valid_path(char *path)
     
     i64 slen = __fs_strlen(path);
 
-    if(path[slen-1] != '/')
-        return false;
-
     for(i64 i = 1; i < slen; i++)
     {
         if(path[i-1] == '/' && path[i] == '/')
@@ -833,6 +829,40 @@ static bool __valid_path(char *path)
     }
 
     return true;
+}
+
+// String slice
+struct sslice
+{
+    i64 spos;
+    i64 epos;
+};
+
+static struct sslice __fs_strtok(i64 *pos, char *path)
+{
+    struct sslice ret;
+
+    if(path[*pos] == '\0')
+    {
+        struct sslice err = {.spos = -1, .epos = -1};
+        return err;
+    }
+
+    if(path[*pos] == '/')
+        (*pos)++;
+
+    // Save start pos
+    ret.spos = *pos;
+
+    while(path[*pos] != '/' && path[*pos] != '\0')
+    {
+        (*pos)++;
+    }
+
+    // Save end pos
+    ret.epos = *pos; 
+
+    return ret;
 }
 
 /**
@@ -845,12 +875,31 @@ static bool __valid_path(char *path)
 i64 fs_inode_query(struct fs *fs, char *path)
 {
     // Check if path is valid (see helper method)
+    if(!__valid_path(path))
+        return FS_ERROR;
 
-    // Split path into names (with helper method)
+    i64 pos = 1;
+    i64 next_index = fs->sb_cache.root_dir_inode_index;
+    char local_buf[FS_NAME_LEN];
     
-    // Use fs_inode_query_name to travel through dir structure
+    do {
+        // Get next name from path
+        struct sslice tok = __fs_strtok(&pos, path);     
 
-    // TODO
+        // Check if we reached end of path
+        if(tok.spos == -1)
+            return next_index;
+
+        bzero((u8*)local_buf, FS_NAME_LEN);        
+        memcpy((u8*)local_buf, &path[tok.spos], tok.epos - tok.spos);
+
+        // Use fs_inode_query_name to travel through dir structure
+        next_index = fs_inode_query_name(fs, next_index, local_buf);   
+        
+        if(next_index == FS_ERROR)
+            return FS_ERROR;
+
+    } while(true);
 }
 
 /**

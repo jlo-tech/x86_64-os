@@ -90,4 +90,5 @@ i64 fs_inode_nth_block(struct fs *fs, i64 inode_index, i64 n);
 i64 fs_inode_add_entry(struct fs *fs, i64 inode_index, char *name);
 i64 fs_inode_del_entry(struct fs *fs, i64 inode_index, char *name);
 i64 fs_inode_query_name(struct fs *fs, i64 inode_index, char *name);
+i64 fs_inode_query(struct fs *fs, char *path);
 
