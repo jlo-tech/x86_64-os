@@ -61,7 +61,9 @@ struct inode
 
     i64 num_entries;                // Number of entries in dir, ignored in file
 
-    FS_PADDING(FS_BLOCK_SIZE, 32);
+    i64 pos;                        // Position in file (can be changed by seek)
+
+    FS_PADDING(FS_BLOCK_SIZE, 40);
 
 } __attribute__((packed));
 
@@ -91,4 +93,12 @@ i64 fs_inode_add_entry(struct fs *fs, i64 inode_index, char *name);
 i64 fs_inode_del_entry(struct fs *fs, i64 inode_index, char *name);
 i64 fs_inode_query_name(struct fs *fs, i64 inode_index, char *name);
 i64 fs_inode_query(struct fs *fs, char *path);
+
+bool fs_mk(struct fs *fs, char *path, char *name);
+bool fs_rm(struct fs *fs, char *path, char *name);
+i64 fs_handle(struct fs *fs, char *path);
+bool fs_type(struct fs *fs, i64 handle, i64 type);
+bool fs_seek(struct fs *fs, i64 handle, i64 off);
+bool fs_wrfl(struct fs *fs, i64 handle, u8 *data, i64 len);
+bool fs_refl(struct fs *fs, i64 handle, u8 *data, i64 len);
 

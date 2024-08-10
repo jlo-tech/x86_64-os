@@ -113,12 +113,15 @@ void kmain(struct multiboot_information *mb_info)
     
     fs_inode_add_entry(&fs, ii, "Folder");
     i64 fii = fs_inode_query(&fs, "/Folder");
-    kprintf("%d\n", fii);
+  
+    fs_type(&fs, fii, FS_TYPE_FILE);
+    fs_wrfl(&fs, fii, (u8*)"Content data...", sizeof("Content data..."));  
 
-    fs_inode_add_entry(&fs, fii, "AnotherFile");
+    char data[64] = {0};
+    fs_refl(&fs, fii, data, 16);
+    
+    kprintf("%s\n", data);
 
-    i64 fiii = fs_inode_query(&fs, "/Folder/AnotherFile");
-    kprintf("%d\n", fiii);
 
     // Enable syscalls
     syscalls_setup();
