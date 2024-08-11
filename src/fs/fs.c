@@ -672,7 +672,7 @@ i64 fs_inode_add_entry(struct fs *fs, i64 inode_index, char *name)
     fs_write(fs, inode_index, (u8*)&tmp);
 
     // Entry not found
-    return FS_ERROR;
+    return nb;
 }
 
 /**
@@ -744,7 +744,7 @@ i64 fs_inode_del_entry(struct fs *fs, i64 inode_index, char *name)
                 // Free last block
                 fs_read(fs, inode_index, (u8*)&tmp);
                 fs_inode_resize(fs, inode_index, inode->file_size - FS_BLOCK_SIZE);
-                
+
                 return 0;
             }
         }
@@ -924,21 +924,45 @@ static i64 __bitmap_size(i64 disk_size, i64 block_size)
 /**
  * Init filesystem 
  */
-bool fs_init(struct fs *fs, virtio_blk_dev_t *blk_dev)
+bool fs_init(struct fs *fs, virtio_blk_dev_t *blk_dev, bool fresh)
 {
     fs->blk_dev = blk_dev;
 
-    fs->sb_cache.disk_size = (blk_dev->size * FS_SECTOR_SIZE); 
-    fs->sb_cache.bitmap_size = __bitmap_size(fs->sb_cache.disk_size, FS_BLOCK_SIZE);
-    fs->sb_cache.root_dir_inode_index = 0;
-
-    // Write super block to start of the disk
-    return fs_write(fs, 0, (u8*)&fs->sb_cache);
+    if(fresh)
+    {
+        // Create new superblock
+        fs->sb_cache.disk_size = (blk_dev->size * FS_SECTOR_SIZE); 
+        fs->sb_cache.bitmap_size = __bitmap_size(fs->sb_cache.disk_size, FS_BLOCK_SIZE);
+        fs->sb_cache.root_dir_inode_index = fs_alloc(fs);
+        // Write super block to start of the disk
+        if(!fs_write(fs, 0, (u8*)&fs->sb_cache))
+            return false;
+    }
+    else
+    {
+        // Read old superblock
+        if(!fs_read(fs, 0, (u8*)&fs->sb_cache))
+           return false;
+    }
+    // Success
+    return true;
 }
 
-// TODO: Test and create methods to create dirs / files to prevent data leak by changing inode type
+// Set type (e.g. file/dir)
+static bool fs_type(struct fs *fs, i64 handle, i64 type)
+{
+   struct inode *ptr = (struct inode*)&tmp;
+   // Read inode
+   fs_read(fs, handle, (u8*)&tmp);
+   // Change type
+   ptr->type = type;
+   // Write back
+   fs_write(fs, handle, (u8*)&tmp);
+   
+   return true;
+}
 
-bool fs_mk(struct fs *fs, char *path, char *name)
+bool fs_mk(struct fs *fs, char *path, char *name, i64 type)
 {
     i64 ii = fs_inode_query(fs, path);
     if(ii == FS_ERROR)
@@ -946,7 +970,8 @@ bool fs_mk(struct fs *fs, char *path, char *name)
     i64 ret = fs_inode_add_entry(fs, ii, name);
     if(ret == FS_ERROR)
         return false;
-    return true;
+    // Change type and return
+    return fs_type(fs, ret, type & 1);
 }
 
 bool fs_rm(struct fs *fs, char *path, char *name)
@@ -965,31 +990,31 @@ i64 fs_handle(struct fs *fs, char *path)
     return fs_inode_query(fs, path);
 }
 
-// Set type (e.g. file/dir)
-bool fs_type(struct fs *fs, i64 handle, i64 type)
+bool fs_size(struct fs *fs, i64 handle, i64 *size)
 {
-   struct inode *ptr = (struct inode*)&tmp;
-   // Read inode
-   fs_read(fs, handle, (u8*)&tmp);
-   // Change type
-   ptr->type = type;
-   // Write back
-   fs_write(fs, handle, (u8*)&tmp);
-   
-   return true;
+    struct inode *ptr = (struct inode*)&tmp;
+    // Read inode
+    bool err = fs_read(fs, handle, (u8*)&tmp);
+    if(!err)
+        return false;
+    // Return size 
+    *size = ptr->file_size;
+    return true;
 }
 
 bool fs_seek(struct fs *fs, i64 handle, i64 off)
 {
-   struct inode *ptr = (struct inode*)&tmp;
-   // Read inode
-   fs_read(fs, handle, (u8*)&tmp);
-   // Change position
-   ptr->pos += off;
-   // Write back
-   fs_write(fs, handle, (u8*)&tmp);
-   
-   return true;
+    struct inode *ptr = (struct inode*)&tmp;
+    // Read inode
+    fs_read(fs, handle, (u8*)&tmp);
+    // Change position
+    if(ptr->file_size != 0)
+    { 
+        ptr->pos = (ptr->pos + off) % ptr->file_size;
+        // Write back
+        fs_write(fs, handle, (u8*)&tmp);
+    }
+    return true;
 }
 
 bool fs_wrfl(struct fs *fs, i64 handle, u8 *data, i64 len)
@@ -1016,6 +1041,7 @@ bool fs_wrfl(struct fs *fs, i64 handle, u8 *data, i64 len)
         (len / FS_BLOCK_SIZE) : 
         (len / FS_BLOCK_SIZE) + 1;
   
+    i64 written = 0;
     i64 block  = ptr->pos / FS_BLOCK_SIZE;
     i64 offset = ptr->pos % FS_BLOCK_SIZE;
 
@@ -1029,6 +1055,8 @@ bool fs_wrfl(struct fs *fs, i64 handle, u8 *data, i64 len)
         i64 amount = min(len, FS_BLOCK_SIZE - offset);  
         memcpy((u8*)&tmp + offset, data, amount);
 
+        written += amount;
+
         // Recalc values
         len -= amount;
         data += amount;
@@ -1037,6 +1065,9 @@ bool fs_wrfl(struct fs *fs, i64 handle, u8 *data, i64 len)
         // Write back to disk
         fs_write(fs, cb, (u8*)&tmp);
     }
+
+    // Seek forward
+    fs_seek(fs, handle, written); 
 
     return true; 
 }
@@ -1062,6 +1093,7 @@ bool fs_refl(struct fs *fs, i64 handle, u8 *data, i64 len)
         (len / FS_BLOCK_SIZE) : 
         (len / FS_BLOCK_SIZE) + 1;
   
+    i64 read = 0;
     i64 block  = ptr->pos / FS_BLOCK_SIZE;
     i64 offset = ptr->pos % FS_BLOCK_SIZE;
 
@@ -1075,11 +1107,16 @@ bool fs_refl(struct fs *fs, i64 handle, u8 *data, i64 len)
         i64 amount = min(len, FS_BLOCK_SIZE - offset);  
         memcpy(data, (u8*)&tmp + offset, amount);
 
+        read += amount;
+
         // Recalc values
         len -= amount;
         data += amount;
         offset = 0;
     }
+
+    // Seek forward
+    fs_seek(fs, handle, read);
 
     return true;       
 }

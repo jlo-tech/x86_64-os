@@ -105,20 +105,18 @@ void kmain(struct multiboot_information *mb_info)
    
     // TODO: Test fs...
     struct fs fs;
-    fs_init(&fs, &blk_dev); 
-
-    i64 ii = fs_alloc(&fs);
+    fs_init(&fs, &blk_dev, true); 
     
-    fs.sb_cache.root_dir_inode_index = ii;
+    fs_mk(&fs, "/", "File", FS_TYPE_FILE);
+    i64 handle = fs_handle(&fs, "/File");
+ 
     
-    fs_inode_add_entry(&fs, ii, "Folder");
-    i64 fii = fs_inode_query(&fs, "/Folder");
-  
-    fs_type(&fs, fii, FS_TYPE_FILE);
-    fs_wrfl(&fs, fii, (u8*)"Content data...", sizeof("Content data..."));  
+    fs_wrfl(&fs, handle, (u8*)"Content data...", sizeof("Content data..."));  
+    
+    fs_seek(&fs, handle, 2);
 
     char data[64] = {0};
-    fs_refl(&fs, fii, data, 16);
+    fs_refl(&fs, handle, data, 16);
     
     kprintf("%s\n", data);
 
