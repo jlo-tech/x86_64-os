@@ -82,22 +82,15 @@ struct fs
 // Init superblock and initialize root dir
 bool fs_init(struct fs *fs, virtio_blk_dev_t *blk_dev, bool fresh);
 
-i64 fs_alloc(struct fs *fs);
-i64 fs_free(struct fs *fs, i64 index);
-
-i64 fs_inode_alloc(struct fs *fs, i64 inode_index, i64 block_index);
-i64 fs_inode_free(struct fs *fs, i64 inode_index, i64 block_index);
-i64 fs_inode_resize(struct fs *fs, i64 inode_index, i64 size);
-i64 fs_inode_nth_block(struct fs *fs, i64 inode_index, i64 n);
-i64 fs_inode_add_entry(struct fs *fs, i64 inode_index, char *name);
-i64 fs_inode_del_entry(struct fs *fs, i64 inode_index, char *name);
-i64 fs_inode_query_name(struct fs *fs, i64 inode_index, char *name);
-i64 fs_inode_query(struct fs *fs, char *path);
-
 bool fs_mk(struct fs *fs, char *path, char *name, i64 type);
 bool fs_rm(struct fs *fs, char *path, char *name);
+
+// Aka open
 i64 fs_handle(struct fs *fs, char *path);
+
+// Get size
 bool fs_size(struct fs *fs, i64 handle, i64 *size);
+
 bool fs_seek(struct fs *fs, i64 handle, i64 off);
 bool fs_wrfl(struct fs *fs, i64 handle, u8 *data, i64 len);
 bool fs_refl(struct fs *fs, i64 handle, u8 *data, i64 len);
