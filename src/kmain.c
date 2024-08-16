@@ -3,6 +3,7 @@
 #include <vmm.h>
 #include <pit.h>
 #include <pci.h>
+#include <apic.h>
 #include <intr.h>
 #include <kernel.h>
 #include <syscalls.h>
@@ -103,7 +104,7 @@ void kmain(struct multiboot_information *mb_info)
     virtio_block_dev_init(&blk_dev, &virtio_dev);
 
    
-    // TODO: Test fs...
+    // Test fs...
     struct fs fs;
     fs_init(&fs, &blk_dev, true); 
     
@@ -119,6 +120,12 @@ void kmain(struct multiboot_information *mb_info)
     fs_refl(&fs, handle, data, 16);
     
     kprintf("%s\n", data);
+
+    // Parse MP Tables
+    kclear();
+
+    kprintf("\n%h", mp_check_ct(mp_search_fps()));
+    return; 
 
 
     // Enable syscalls

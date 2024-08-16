@@ -27,10 +27,10 @@ iso: kernel
 	@grub2-mkrescue -o os.iso iso
 
 run: iso
-	@$(QEMU) -cdrom os.iso -m 8G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk
+	@$(QEMU) -cdrom os.iso -smp 4 -m 8G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk
 
 debug: iso
-	@$(QEMU) -s -S -cdrom os.iso -m 8G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk -no-reboot -no-shutdown -d int,cpu_reset
+	@$(QEMU) -s -S -cdrom os.iso -smp 4 -m 8G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk -no-reboot -no-shutdown -d int,cpu_reset
 
 clean:
 	@rm -r src/asm/*.o
