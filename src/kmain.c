@@ -117,15 +117,17 @@ void kmain(struct multiboot_information *mb_info)
     fs_seek(&fs, handle, 2);
 
     char data[64] = {0};
-    fs_refl(&fs, handle, data, 16);
+    fs_refl(&fs, handle, (u8*)data, 16);
     
     kprintf("%s\n", data);
 
     // Parse MP Tables
     kclear();
 
-    kprintf("\n%h", mp_check_ct(mp_search_fps()));
-    return; 
+    void **page = (void**)kmalloc(4096);
+    struct mp_ct_hdr *hdr = mp_check_ct(mp_search_fps());
+    mp_ct_entries(hdr, page);
+    mp_ct_extended_entries(hdr, page);
 
 
     // Enable syscalls
