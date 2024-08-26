@@ -1,4 +1,5 @@
 #include <io.h>
+#include <apic.h>
 #include <intr.h>
 
 #define BIT16_MASK 0xffff
@@ -356,6 +357,12 @@ void pic_eoi(u8 irq)
     outb(PIC_SEC_CMD, 0x20);
 }
 
+void pic_disable()
+{
+    // Mask all interrupts
+    pic_set_mask(0xFFFF);
+}
+
 /*
  * context: saved cpu context
  * code: number of interrupt/exception
@@ -378,6 +385,11 @@ struct cpu_context* intr_handler(struct cpu_context* saved_context, u64 code)
         kprintf("Buf: %s\n", buf);
         
         pic_eoi(1);
+    }
+
+    if(code == 242)
+    {
+        lapic_end_of_int();
     }
 
     return saved_context;

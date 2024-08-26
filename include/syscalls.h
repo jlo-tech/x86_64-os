@@ -22,8 +22,5 @@ struct kernel_root
     u64 user_rip;
 } __attribute__((packed));
 
-u64 rmsr(u32 msr);
-void wmsr(u32 msr, u64 val);
-
 /* Setup fast syscalls */
 void syscalls_setup();

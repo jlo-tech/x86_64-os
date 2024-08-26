@@ -128,6 +128,38 @@ bool mp_ct_extended_entries(struct mp_ct_hdr *hdr, void **res);
 
 
 // TODO: Implement local APIC
+
+#define IA32_APIC_BASE_MSR 0x1B
+
+// Local APIC offsets
+#define LAPIC_ID            0x20
+#define LAPIC_VERSION       0x30
+#define LAPIC_TPR           0x80
+#define LAPIC_EOI           0xB0
+#define LAPIC_LDR           0xD0    // logical Destination Register
+#define LAPIC_DFR           0xE0    // Destination Format Register
+#define LAPIC_SIVR          0xF0    // Spurious Interrupt Vector Register
+#define LAPIC_ERR           0x280   // Error status register
+#define LAPIC_ICR_LOW       0x300   // Interrupt Command Register
+#define LAPIC_ICR_HIGH      0x310   // Interrupt Command Register
+#define LAPIC_LVT_TIMER     0x320
+#define LAPIC_LVT_THERMAL   0x330
+#define LAPIC_LVT_PERF_CTR  0x340
+#define LAPIC_LVT_LINT0     0x350
+#define LAPIC_LVT_LINT1     0x360
+#define LAPIC_LVT_ERROR     0x370
+#define LAPIC_INIT_COUNT    0x380   // Initial Count Register (for Timer)
+#define LAPIC_CURR_COUNT    0x390   // Current Count Register (for Timer)
+#define LAPIC_DIVIDE_CONF   0x3E0   // Divide Configuration Register (for Timer)
+
+size_t lapic_base_addr();
+bool   lapic_enabled();
+void   lapic_end_of_int();
+
+void lapic_init(u8 spurious_interrupt_vector);
+void lapic_timer_init(u8 interrupt_vector, bool periodic, u32 count, u32 divider);
+
+
 // TODO: Implement IO APIC
 
 

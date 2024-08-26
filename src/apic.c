@@ -1,6 +1,5 @@
+#include <io.h>
 #include <apic.h>
-
-#include <vga.h>
 
 static bool mp_fps_valid(struct mp_fps *fps)
 {
@@ -167,4 +166,52 @@ bool mp_ct_extended_entries(struct mp_ct_hdr *hdr, void **res)
 
     return true;
 }
+
+/* Local APIC */
+
+size_t lapic_base_addr()
+{
+    return rmsr(IA32_APIC_BASE_MSR) & (0x7FFFFFL << 12);
+}
+
+bool lapic_enabled()
+{
+    return (rmsr(IA32_APIC_BASE_MSR) >> 11) & 1;
+}
+
+void lapic_end_of_int()
+{
+    mmio_writed(lapic_base_addr() + LAPIC_EOI, 0);
+}
+
+void lapic_init(u8 spurious_interrupt_vector)
+{
+    // Enable all external interrupts 
+    mmio_writed(lapic_base_addr() + LAPIC_TPR, 0);
+
+    // Set spurious inter vector and enable APIC
+    u32 sivr_val = (1 << 8) | spurious_interrupt_vector;
+    mmio_writed(lapic_base_addr() + LAPIC_SIVR, sivr_val); 
+}
+
+void lapic_timer_init(u8 interrupt_vector, bool periodic, u32 count, u32 divider)
+{
+    // Divide config register determines division factor for clock
+    divider = (divider ^ ((divider & 0x4) << 1)) & 0xB; // Set bits according to spec
+    mmio_writed(lapic_base_addr() + LAPIC_DIVIDE_CONF, divider); 
+
+    // Write LVT Timer Register
+    u32 time_reg_val = (((u32)periodic) << 17) | ((u32)interrupt_vector);
+    mmio_writed(lapic_base_addr() + LAPIC_LVT_TIMER, time_reg_val);
+
+    // Write count value and thereby start the counter
+    mmio_writed(lapic_base_addr() + LAPIC_INIT_COUNT, count);
+}
+
+void lapic_timer_deinit()
+{
+   // TODO: Mask interrupts 
+   // TODO: Stop timer by writing 0 to count reg
+}
+
 

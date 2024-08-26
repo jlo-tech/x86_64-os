@@ -1,22 +1,9 @@
+#include <io.h>
 #include <vga.h>
 #include <syscalls.h>
 
 extern void kernel_stack;
 extern void syscall_handler();
-
-u64 rmsr(u32 msr)
-{
-    u32 lo, hi;
-    asm volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(msr));
-    return ((u64)hi << 32) | lo;
-}
- 
-void wmsr(u32 msr, u64 val)
-{
-    u32 lo = val & 0xFFFFFFFF;
-    u32 hi = (val >> 32) & 0xFFFFFFFF;
-    asm volatile("wrmsr" : : "a"(lo), "d"(hi), "c"(msr));
-}
 
 static struct kernel_root kernel_root_struct;
 

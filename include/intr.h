@@ -82,5 +82,6 @@ void pic_init();
 u16  pic_get_mask();
 void pic_set_mask(u16 mask);
 void pic_eoi(u8 irq);
+void pic_disable();
 
 struct cpu_context* intr_handler(struct cpu_context* saved_context, u64 code);

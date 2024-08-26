@@ -83,13 +83,13 @@ void kmain(struct multiboot_information *mb_info)
     kprintf("Kernel limit %d\n", kernel_limit_addr);
 
     // Setup local interrupts
-    intr_setup();
+    //intr_setup();
 
     // Enable external interrupts
-    pic_init();
+    // pic_init();
 
     // Configure timer
-    pit_freq(-1); // Max sleep time
+    // pit_freq(-1); // Max sleep time
 
     kclear();
 
@@ -129,6 +129,8 @@ void kmain(struct multiboot_information *mb_info)
     mp_ct_entries(hdr, page);
     mp_ct_extended_entries(hdr, page);
 
+    kprintf("%h %h %d\n", hdr->local_apic_mm_addr, lapic_base_addr(), lapic_enabled());
+
 
     // Enable syscalls
     syscalls_setup();
@@ -137,6 +139,7 @@ void kmain(struct multiboot_information *mb_info)
     struct page_table *pt = (struct page_table*)align(kmalloc(4096), 4096);
     bzero((u8*)pt, sizeof(struct page_table));
 
+#if 0
     // Map kernel but this time make it user accessible
     paging_map_range(pt, 0, 0, 
         PAGE_PRESENT | PAGE_USER | PAGE_WRITABLE, 
@@ -144,7 +147,8 @@ void kmain(struct multiboot_information *mb_info)
         4096);
 
     // Load new pt
-    paging_activate(pt);
+    //paging_activate(pt);
+#endif
 
     // Switch to user mode
     struct interrupt_context ctx;
@@ -154,7 +158,14 @@ void kmain(struct multiboot_information *mb_info)
     ctx.rsp = (u64)user_stack;
     ctx.ds = (3 << 3) | 3;
 
-    //intr_enable();
+    intr_setup();
+    pic_disable();
+    intr_enable();
+ 
+    lapic_init(0xF1);
+    lapic_timer_init(0xF2, true, 1000000, 6);
+
+
     //switch_context(&ctx);
 
     // Wait for interrupts
