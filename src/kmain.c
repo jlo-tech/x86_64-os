@@ -165,6 +165,14 @@ void kmain(struct multiboot_information *mb_info)
     lapic_init(0xF1);
     lapic_timer_init(0xF2, true, 1000000, 6);
 
+    // Artificial delay
+    for(i64 i = 0; i < 500000000; i++)
+    {
+        volatile static int j = 0;
+        j++;
+    }
+
+    lapic_timer_deinit();
 
     //switch_context(&ctx);
 

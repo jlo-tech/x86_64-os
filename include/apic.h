@@ -158,7 +158,7 @@ void   lapic_end_of_int();
 
 void lapic_init(u8 spurious_interrupt_vector);
 void lapic_timer_init(u8 interrupt_vector, bool periodic, u32 count, u32 divider);
-
+void lapic_timer_deinit();
 
 // TODO: Implement IO APIC
 

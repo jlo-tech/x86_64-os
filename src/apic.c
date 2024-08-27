@@ -169,6 +169,8 @@ bool mp_ct_extended_entries(struct mp_ct_hdr *hdr, void **res)
 
 /* Local APIC */
 
+// TODO: Create lapic type that holds base address...
+
 size_t lapic_base_addr()
 {
     return rmsr(IA32_APIC_BASE_MSR) & (0x7FFFFFL << 12);
@@ -210,8 +212,10 @@ void lapic_timer_init(u8 interrupt_vector, bool periodic, u32 count, u32 divider
 
 void lapic_timer_deinit()
 {
-   // TODO: Mask interrupts 
-   // TODO: Stop timer by writing 0 to count reg
-}
+    // Mask interrupts 
+    mmio_writed(lapic_base_addr() + LAPIC_LVT_TIMER, mmio_readd(lapic_base_addr() + LAPIC_LVT_TIMER) & (~(1L<<16)));
 
+    // Stop timer by writing 0 to count reg
+    mmio_writed(lapic_base_addr() + LAPIC_INIT_COUNT, 0);
+}
 
