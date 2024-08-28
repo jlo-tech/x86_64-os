@@ -389,7 +389,7 @@ struct cpu_context* intr_handler(struct cpu_context* saved_context, u64 code)
 
     if(code == 242)
     {
-        lapic_end_of_int();
+        lapic_end_of_int(lapic_fetch());
     }
 
     return saved_context;

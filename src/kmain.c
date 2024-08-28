@@ -129,7 +129,7 @@ void kmain(struct multiboot_information *mb_info)
     mp_ct_entries(hdr, page);
     mp_ct_extended_entries(hdr, page);
 
-    kprintf("%h %h %d\n", hdr->local_apic_mm_addr, lapic_base_addr(), lapic_enabled());
+    kprintf("%h\n", hdr->local_apic_mm_addr);
 
 
     // Enable syscalls
@@ -162,8 +162,8 @@ void kmain(struct multiboot_information *mb_info)
     pic_disable();
     intr_enable();
  
-    lapic_init(0xF1);
-    lapic_timer_init(0xF2, true, 1000000, 6);
+    lapic_t la = lapic_init(0xF1);
+    lapic_timer_init(la, 0xF2, true, 1000000, 6);
 
     // Artificial delay
     for(i64 i = 0; i < 500000000; i++)
@@ -172,7 +172,7 @@ void kmain(struct multiboot_information *mb_info)
         j++;
     }
 
-    lapic_timer_deinit();
+    lapic_timer_deinit(la);
 
     //switch_context(&ctx);
 
