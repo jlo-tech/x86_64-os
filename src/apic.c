@@ -169,10 +169,18 @@ bool mp_ct_extended_entries(struct mp_ct_hdr *hdr, void **res)
 
 /* Local APIC */
 
-lapic_t lapic_init(u8 spurious_interrupt_vector)
+lapic_t lapic_init(u8 spurious_interrupt_vector, 
+                   u8 lint0_interrupt_vector, 
+                   u8 lint1_interrupt_vector,
+                   u8 error_interrupt_vector)
 {
     // APIC base address
     size_t addr = rmsr(IA32_APIC_BASE_MSR) & (0x7FFFFFL << 12);
+
+    // Fill LVT
+    mmio_writed(addr + LAPIC_LVT_LINT0, lint0_interrupt_vector);
+    mmio_writed(addr + LAPIC_LVT_LINT1, lint1_interrupt_vector);
+    mmio_writed(addr + LAPIC_LVT_ERROR, error_interrupt_vector); 
 
     // Enable all external interrupts 
     mmio_writed(addr + LAPIC_TPR, 0);
@@ -188,6 +196,12 @@ lapic_t lapic_fetch()
 {
     // Return base address
     return rmsr(IA32_APIC_BASE_MSR) & (0x7FFFFFL << 12); 
+}
+
+u8 lapic_id(lapic_t lapic)
+{
+    // Return local apic id
+    return (u8)(mmio_readd(lapic + LAPIC_ID) >> 24);
 }
 
 void lapic_end_of_int(lapic_t lapic)
@@ -222,4 +236,8 @@ void lapic_timer_deinit(lapic_t lapic)
     // Stop timer by writing 0 to count reg
     mmio_writed(lapic + LAPIC_INIT_COUNT, 0);
 }
+
+// TODO: IPIs
+
+// TODO: IOAPIC
 

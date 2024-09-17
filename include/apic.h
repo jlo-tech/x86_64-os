@@ -127,8 +127,6 @@ void mp_ct_entries(struct mp_ct_hdr *hdr, void **res);
 bool mp_ct_extended_entries(struct mp_ct_hdr *hdr, void **res);
 
 
-// TODO: Implement local APIC
-
 #define IA32_APIC_BASE_MSR 0x1B
 
 // Local APIC offsets
@@ -155,16 +153,16 @@ bool mp_ct_extended_entries(struct mp_ct_hdr *hdr, void **res);
 // LAPIC datatype
 typedef size_t lapic_t;
 
-lapic_t lapic_init(u8 spurious_interrupt_vector);
+lapic_t lapic_init(u8 spurious_interrupt_vector, 
+                   u8 lint0_interrupt_vector, 
+                   u8 lint1_interrupt_vector,
+                   u8 error_interrupt_vector);
 lapic_t lapic_fetch();
+u8      lapic_id();
 
 bool   lapic_enabled();
 void   lapic_end_of_int();
 
 void lapic_timer_init(lapic_t lapic, u8 interrupt_vector, bool periodic, u32 count, u32 divider);
 void lapic_timer_deinit(lapic_t lapic);
-
-// TODO: Implement IO APIC
-
-
 

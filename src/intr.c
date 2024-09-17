@@ -387,6 +387,8 @@ struct cpu_context* intr_handler(struct cpu_context* saved_context, u64 code)
         pic_eoi(1);
     }
 
+    // TODO: No EOI on spurious interrupt
+
     if(code == 242)
     {
         lapic_end_of_int(lapic_fetch());
