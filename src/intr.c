@@ -1,4 +1,5 @@
 #include <io.h>
+#include <pit.h>
 #include <apic.h>
 #include <intr.h>
 
@@ -369,30 +370,26 @@ void pic_disable()
 */
 struct cpu_context* intr_handler(struct cpu_context* saved_context, u64 code)
 {
-    kprintf("Interrupt [%d]\n", code);
+    //kprintf("Interrupt [%d]\n", code);
 
-    if(code == 0x20)
+    // Handle PIT (timer) interrupt and make pit_delay() work
+    if(code == INTR_NUM_PIT)
     {
-        pic_eoi(0);
+        pit_handle_intr();
+        lapic_end_of_int(lapic_fetch());
     }
 
+    /*
     if(code == 0x21)
     {
         keyboard_handle_keypress();
 
         u8 buf[128] = {0};
         keyboard_data(buf, 4);
-        kprintf("Buf: %s\n", buf);
         
         pic_eoi(1);
     }
-
-    // TODO: No EOI on spurious interrupt
-
-    if(code == 242)
-    {
-        lapic_end_of_int(lapic_fetch());
-    }
+    */
 
     return saved_context;
 }

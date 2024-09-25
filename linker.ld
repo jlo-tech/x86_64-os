@@ -2,6 +2,13 @@ ENTRY(_start)
 
 SECTIONS 
 {
+    . = 0x8000;
+
+    .smp :
+    {
+        src/asm/smp.o(.text)
+    }
+
     . = 1M;
 
     kernel_base = .;
@@ -13,7 +20,9 @@ SECTIONS
 
     .text : ALIGN(0x1000)
     {
-        *(.text)
+        src/*.o(.text)
+        src/fs/*.o(.text)
+        src/asm/*.o(.text)
     }
 
     .rodata : ALIGN(0x1000)

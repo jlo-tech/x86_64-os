@@ -126,6 +126,15 @@ void mp_ct_entries(struct mp_ct_hdr *hdr, void **res);
 // Parse extended ct entries 
 bool mp_ct_extended_entries(struct mp_ct_hdr *hdr, void **res);
 
+// Find PIT mapping
+struct mp_ct_io_interrupt_entry* mp_ct_find_pit(struct mp_ct_hdr *hdr);
+
+// Find IOAPIC
+struct mp_ct_io_apic_entry* mp_ct_find_ioapic(struct mp_ct_hdr *hdr);
+
+//-------//
+// LAPIC //
+//-------//
 
 #define IA32_APIC_BASE_MSR 0x1B
 
@@ -150,7 +159,6 @@ bool mp_ct_extended_entries(struct mp_ct_hdr *hdr, void **res);
 #define LAPIC_CURR_COUNT    0x390   // Current Count Register (for Timer)
 #define LAPIC_DIVIDE_CONF   0x3E0   // Divide Configuration Register (for Timer)
 
-// LAPIC datatype
 typedef size_t lapic_t;
 
 lapic_t lapic_init(u8 spurious_interrupt_vector, 
@@ -166,3 +174,51 @@ void   lapic_end_of_int();
 void lapic_timer_init(lapic_t lapic, u8 interrupt_vector, bool periodic, u32 count, u32 divider);
 void lapic_timer_deinit(lapic_t lapic);
 
+//------//
+// IPIs //
+//------//
+
+#define IPI_SHORTHAND_NO            0x0
+#define IPI_SHORTHAND_SELF          0x1
+#define IPI_SHORTHAND_ALL_IN_SELF   0x2
+#define IPI_SHORTHAND_ALL_EX_SELF   0x3
+
+#define IPI_TRIGGER_EDGE    0x0
+#define IPI_TRIGGER_LEVEL   0x1
+
+#define IPI_LEVEL_DEASSERT  0x0
+#define IPI_LEVEL_ASSERT    0x1
+
+#define IPI_DELIVERY_FIXED  0x0
+#define IPI_DELIVERY_LPRIO  0x1
+#define IPI_DELIVERY_SMI    0x2
+#define IPI_DELIVERY_NMI    0x4
+#define IPI_DELIVERY_INIT   0x5
+#define IPI_DELIVERY_START  0x6
+
+#define IPI_TRAMPOLINE_VECTOR 0x8
+#define IPI_TRAMPOLINE_ORIGIN (IPI_TRAMPOLINE_VECTOR << 12)
+
+// Boot an AP
+bool lapic_boot_ap(lapic_t lapic, u8 lapic_dst_id);
+
+//--------//
+// IOAPIC //
+//--------//
+
+typedef size_t ioapic_t;
+
+#define IOAPIC_SEL  0x00
+#define IOAPIC_WIN  0x10
+
+#define IOAPIC_ID   0x00
+#define IOAPIC_VER  0x01
+#define IOAPIC_ARB  0x02
+#define IOAPIC_RED  0x10
+
+void ioapic_write(ioapic_t apic, u32 reg, u32 data);
+u32  ioapic_read(ioapic_t apic, u32 reg);
+
+u32 ioapic_id(ioapic_t apic);
+void ioapic_redirect(ioapic_t apic, u8 index, u64 redirect_entry);
+bool ioapic_delivery_status(ioapic_t apic, u8 index);

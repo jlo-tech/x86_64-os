@@ -19,18 +19,18 @@ src/asm/%.o: src/asm/%.asm
 	@$(NASM) $(ASMFLAGS) $^
 
 kernel: $(OBJC) $(OBJA) $(OBJFS)
-	@$(LD) -r -o kernel.o src/asm/*.o src/*.o src/fs/*.o
-	@$(LD) -n -o kernel.bin -T linker.ld kernel.o
+	@$(LD) -n -o kernel.bin -T linker.ld src/asm/*.o src/*.o src/fs/*.o
 
 iso: kernel
 	@cp kernel.bin iso/boot/
 	@grub2-mkrescue -o os.iso iso
 
 run: iso
-	@$(QEMU) -cdrom os.iso -smp 4 -m 8G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk -d int,cpu_reset
+	# Multiple sockets to make qemu generate MP tables
+	@$(QEMU) -cdrom os.iso -smp 4,sockets=4,cores=1,threads=1 -m 8G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk -d int,cpu_reset
 
 debug: iso
-	@$(QEMU) -s -S -cdrom os.iso -smp 4 -m 8G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk -no-reboot -no-shutdown -d int,cpu_reset
+	@$(QEMU) -s -S -cdrom os.iso -smp 4,sockets=4,cores=1,threads=1 -m 8G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk -no-reboot -no-shutdown -d int,cpu_reset
 
 clean:
 	@rm -r src/asm/*.o

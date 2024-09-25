@@ -82,17 +82,6 @@ void kmain(struct multiboot_information *mb_info)
     kprintf("Kernel start %d\n", kernel_base_addr);
     kprintf("Kernel limit %d\n", kernel_limit_addr);
 
-    // Setup local interrupts
-    //intr_setup();
-
-    // Enable external interrupts
-    // pic_init();
-
-    // Configure timer
-    // pit_freq(-1); // Max sleep time
-
-    kclear();
-
     pci_scan();
 
     // TODO: Find PCI device by vendor id
@@ -129,7 +118,24 @@ void kmain(struct multiboot_information *mb_info)
     mp_ct_entries(hdr, page);
     mp_ct_extended_entries(hdr, page);
 
-    kprintf("%h\n", hdr->local_apic_mm_addr);
+    kprintf("Entry count: %d\n", hdr->entry_count);
+
+    for(int i = 0; i < hdr->entry_count; i++)
+    {
+        u8 *ep = page[i];
+        if(*ep == 0)
+            kprintf("APIC ID: %d\n", *(ep+1));
+    } 
+
+    struct mp_ct_io_interrupt_entry *pit_entry = mp_ct_find_pit(hdr);
+
+    struct mp_ct_io_apic_entry *ioapic_entry = mp_ct_find_ioapic(hdr);
+    kprintf("IOAPIC base: %h\n", ioapic_entry->io_apic_mm_addr);
+
+    // Redirect PIT interrupt
+    u64 redirection_entry = INTR_NUM_PIT;
+    redirection_entry |= (u64)ioapic_entry->io_apic_id << 56;
+    ioapic_redirect(ioapic_entry->io_apic_mm_addr, pit_entry->dst_io_apic_intin, redirection_entry);
 
 
     // Enable syscalls
@@ -163,9 +169,8 @@ void kmain(struct multiboot_information *mb_info)
     intr_enable();
  
     lapic_t la = lapic_init(0xF1, 0xF2, 0xF3, 0xF4);
-    
-    kprintf("LAPIC ID: %d\n", lapic_id(la));
 
+    #if 0
     lapic_timer_init(la, 0xF2, true, 1000000, 6);
 
     // Artificial delay
@@ -176,6 +181,12 @@ void kmain(struct multiboot_information *mb_info)
     }
 
     lapic_timer_deinit(la);
+    #endif
+
+    //kclear();
+    
+    bool res = lapic_boot_ap(lapic_fetch(), 1);
+    kprintf("RES: %d\n", res);
 
     //switch_context(&ctx);
 

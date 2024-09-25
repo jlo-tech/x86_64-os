@@ -25,6 +25,7 @@ struct ktree_node
 /* GP methods */
 void bzero(u8 *mem, u64 size);
 void memcpy(void *dst, void *src, size_t sz);
+bool memcmp(u8 *m0, u8 *m1, size_t n);
 size_t strlen(char *str);
 size_t min(size_t a, size_t b);
 size_t max(size_t a, size_t b);
@@ -60,3 +61,4 @@ struct klist_node
 bool klist_empty(struct klist *root);
 void klist_push(struct klist *root, struct klist_node *node);
 void klist_pop(struct klist *root, struct klist_node *node);
+

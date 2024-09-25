@@ -19,6 +19,17 @@ void memcpy(void *dst, void *src, size_t sz)
     }
 }
 
+bool memcmp(u8 *m0, u8 *m1, size_t n)
+{
+    for(size_t i = 0; i < n; i++)
+    {
+        if(m0[i] != m1[i])
+            return false;
+    }
+
+    return true; 
+}
+
 size_t strlen(char *str)
 {
     size_t c = 0;
