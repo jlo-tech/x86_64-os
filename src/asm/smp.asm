@@ -1,14 +1,17 @@
 global smp_trampoline_begin
 global smp_trampoline_end
 
+extern page_id_ptr
+extern global_descriptor_table_pointer
+
+extern smp_boot_params
+extern smp_ap_boot
+
 section .text
 
 bits 16
 
 smp_trampoline_begin:
-
-    ; TODO Switch to protected mode and 
-    ; print some message or change some var
 
     ; disable interrupts
     cli
@@ -60,7 +63,7 @@ align 16
 bits 32
 
 .pm:
-    ; load 
+    ; load segment registers
     mov ax, 0x10
     mov ds, ax
     mov ss, ax
@@ -68,19 +71,52 @@ bits 32
     mov fs, ax
     mov gs, ax
 
-    ; print something 
+    ; switch to long mode
 
-    mov edi, 0xb8000
-    mov byte [edi], '!'
-    mov byte [edi+1], 0xC
-    mov edi, 0xb8000
-    mov byte [edi+2], '!'
-    mov byte [edi+3], 0xC
-    mov edi, 0xb8000
-    mov byte [edi+4], '!'
-    mov byte [edi+5], 0xC
+    ; enable paging (identity mapping)
+    mov eax, page_id_ptr
+    mov cr3, eax 
 
-    ; TODO: long mode
+    mov eax, cr4
+    or eax, 1 << 5
+    mov cr4, eax 
+
+    mov ecx, 0xC0000080
+    rdmsr
+    or eax, 1 << 8
+    wrmsr
+
+    mov eax, cr0
+    or eax, 1 << 31
+    mov cr0, eax
+
+    ; load gdt
+    lgdt [global_descriptor_table_pointer]
+
+    ; reload code segment
+    jmp 0x08:.lm
+
+
+bits 64
+
+.lm:
+
+    ; reload data segment
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
+
+    ; setup stack
+    mov rsp, [smp_boot_params+0]
+
+    ; let BSP know that we came this far
+    mov qword [smp_boot_params+8], 1
+
+    cld
+    call smp_ap_boot
 
     hlt
 

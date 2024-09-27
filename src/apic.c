@@ -251,6 +251,30 @@ struct mp_ct_io_apic_entry* mp_ct_find_ioapic(struct mp_ct_hdr *hdr)
     return addr;
 }
 
+size_t mp_ct_num_cores(struct mp_ct_hdr *hdr)
+{
+    void **entries = (void**)kmalloc(hdr->entry_count * sizeof(void*)); 
+
+    // Get all entries in the MP base table
+    mp_ct_entries(hdr, entries);
+
+    size_t num_cores = 0;
+
+    // Search for processor entries 
+    for(int i = 0; i < hdr->entry_count; i++)
+    {
+        u8 *e_type = (u8*)entries[i];
+        if(*e_type ==  0)
+        {
+            num_cores++;
+        }
+    }
+
+    kfree((i64)entries);
+
+    return num_cores;
+}
+
 /* Local APIC */
 
 lapic_t lapic_init(u8 spurious_interrupt_vector, 
@@ -349,16 +373,23 @@ void ioapic_redirect(ioapic_t apic, u8 index, u64 redirect_entry)
     ioapic_write(apic, IOAPIC_RED + (index << 1) + 1, high);
 }
 
-void ioapic_mask(ioapic_t apic, u8 index, bool mask)
-{
-    // TODO: Mask/unmask interrupt in ioapic
-    // TODO: To be able to disable timer
-}
-
 bool ioapic_delivery_status(ioapic_t apic, u8 index)
 {
     u32 re = ioapic_read(apic, IOAPIC_RED + (index << 1));
     return (re >> 12) & 1;
+}
+
+void ioapic_mask(ioapic_t apic, u8 index, u32 mask)
+{
+    u32 low  = ioapic_read(apic, IOAPIC_RED + (index << 1));
+    u32 high = ioapic_read(apic, IOAPIC_RED + (index << 1) + 1);
+
+    mask &= 1;
+    low = low & ~(1 << 16);     // Clear mask bit
+    low = low | (mask << 16);   // Reset mask bit if mask == 1
+
+    ioapic_write(apic, IOAPIC_RED + (index << 1), low);
+    ioapic_write(apic, IOAPIC_RED + (index << 1) + 1, high);
 }
 
 // IPIs
@@ -438,9 +469,9 @@ static bool lapic_ipi_delivered(lapic_t lapic)
     return false;
 }
 
-// Location of SMP trampoline code
-extern void smp_trampoline_begin;
-extern void smp_trampoline_end;
+volatile struct smp_boot_params smp_boot_params = 
+    {.stack_pointer = NULL, 
+     .launch_success = false};
 
 /**
  * Starts an ap
@@ -449,10 +480,14 @@ bool lapic_boot_ap(lapic_t lapic, u8 lapic_dst_id)
 {
     bool dispatched;
 
-    // Copy startup code to right location
-    memcpy((void*)IPI_TRAMPOLINE_ORIGIN, 
-           (void*)&smp_trampoline_begin, 
-           (size_t)&smp_trampoline_end - (size_t)&smp_trampoline_begin);
+    // Initialize smp boot params (for each core)
+    smp_boot_params.stack_pointer = (u8*)kmalloc(SMP_STACK_SIZE);
+    
+    // Check for error
+    if((i64)smp_boot_params.stack_pointer < 0)
+    {
+        goto fail;
+    }
 
     // Configure timer (1 tick = 200 usec)
     pit_freq(5000);
@@ -479,12 +514,29 @@ bool lapic_boot_ap(lapic_t lapic, u8 lapic_dst_id)
     // Delay 200 usec
     pit_delay(1);
 
-    // TODO: Verify that AP booted successfully (by atomically counting up var)
-    
+    // Verify that AP booted successfully
+    while(!smp_boot_params.launch_success)
+    {
+        pit_delay(1);
+    }
+
+    // Reset values
+    smp_boot_params.stack_pointer = NULL;
+    smp_boot_params.launch_success = false;
+
     // Successfully booted AP
     return true;
 
 fail:
     // Couldn't boot AP
     return false;
+}
+
+/**
+ * Method that is called by the AP after it was successfully started, entry to c code
+ */
+void smp_ap_boot()
+{
+    kprintf("AP booted succesfully\n");
+    while(1); // TODO: Do something usefull   
 }

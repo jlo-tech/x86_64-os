@@ -222,3 +222,14 @@ u32  ioapic_read(ioapic_t apic, u32 reg);
 u32 ioapic_id(ioapic_t apic);
 void ioapic_redirect(ioapic_t apic, u8 index, u64 redirect_entry);
 bool ioapic_delivery_status(ioapic_t apic, u8 index);
+void ioapic_mask(ioapic_t apic, u8 index, u32 mask);
+
+// Generic SMP stuff
+
+#define SMP_STACK_SIZE 16364
+
+struct smp_boot_params
+{
+    u8 *stack_pointer;      // Reinitialized for each core
+    bool launch_success;
+} __attribute__((packed));

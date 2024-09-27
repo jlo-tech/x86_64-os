@@ -128,8 +128,8 @@ _start:
 bits 64
 _kernel:
 
-    ; reload data segment (with null selector)
-    mov ax, 0
+    ; reload data segment
+    mov ax, 0x10
     mov ds, ax
     mov es, ax
     mov fs, ax

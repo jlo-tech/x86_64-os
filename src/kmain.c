@@ -5,6 +5,7 @@
 #include <pci.h>
 #include <apic.h>
 #include <intr.h>
+#include <sync.h>
 #include <kernel.h>
 #include <syscalls.h>
 #include <user_mode.h>
@@ -110,7 +111,6 @@ void kmain(struct multiboot_information *mb_info)
     
     kprintf("%s\n", data);
 
-    // Parse MP Tables
     kclear();
 
     void **page = (void**)kmalloc(4096);
@@ -183,10 +183,11 @@ void kmain(struct multiboot_information *mb_info)
     lapic_timer_deinit(la);
     #endif
 
-    //kclear();
-    
     bool res = lapic_boot_ap(lapic_fetch(), 1);
     kprintf("RES: %d\n", res);
+
+    // Disable PIT after were done
+    ioapic_mask(ioapic_entry->io_apic_mm_addr, pit_entry->dst_io_apic_intin, 1);
 
     //switch_context(&ctx);
 
