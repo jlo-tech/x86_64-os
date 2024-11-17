@@ -12,10 +12,12 @@
 
 #include <virtio.h>
 #include <virtio_blk.h>
+#include <virtio_net.h>
 
 #include <multiboot.h>
 
 #include <fs/fs.h>
+#include <net/net.h>
 
 extern struct kheap kernel_heap;
 extern int cmp_chunks(struct kchunk *c0, struct kchunk* c1);
@@ -80,21 +82,117 @@ void kmain(struct multiboot_information *mb_info)
         }
     }
 
+#if 0
     kprintf("Kernel start %d\n", kernel_base_addr);
     kprintf("Kernel limit %d\n", kernel_limit_addr);
+#endif
 
     pci_scan();
 
-    // TODO: Find PCI device by vendor id
-    pci_dev_t pci_dev = {.bus = 0x0, .dev = 0x4, .fun = 0x0};
-    virtio_dev_t virtio_dev;
+    // TODO: Find PCI device by device id
+    pci_dev_t pci_dev_blk = {.bus = 0x0, .dev = 0x3, .fun = 0x0};
+    virtio_dev_t virtio_dev_blk;
     virtio_blk_dev_t blk_dev;
 
-    virtio_dev_init(&virtio_dev, &pci_dev, 1);
-    virtio_block_dev_init(&blk_dev, &virtio_dev);
+    virtio_dev_init(&virtio_dev_blk, &pci_dev_blk, 1);
+    virtio_block_dev_init(&blk_dev, &virtio_dev_blk);
 
-   
+    // Test virtio net
+    pci_dev_t pci_dev_net = {.bus = 0x0, .dev = 0x4, .fun = 0x0};
+    virtio_dev_t virtio_dev_net;
+    virtio_net_dev_t *net_dev = (virtio_net_dev_t*)kmalloc(sizeof(virtio_net_dev_t));
+
+    virtio_dev_init(&virtio_dev_net, &pci_dev_net, 2);
+    virtio_net_dev_init(net_dev, &virtio_dev_net);
+    virtio_register_net_device(net_dev);
+
+    //kprintf("Int pin of virtio blk dev: %d\n", pci_intr_pin(&pci_dev_blk));
+    //kprintf("Int pin of virtio net dev: %d\n", pci_intr_pin(&pci_dev_net));
+
+    void **page = (void**)kmalloc(4096);
+    struct mp_ct_hdr *hdr = mp_check_ct(mp_search_fps());
+    mp_ct_entries(hdr, page);
+    mp_ct_extended_entries(hdr, page);
+
+#if 0
+    kprintf("Entry count: %d\n", hdr->entry_count);
+
+    for(int i = 0; i < hdr->entry_count; i++)
+    {
+        u8 *ep = page[i];
+        if(*ep == 0)
+            kprintf("APIC ID: %d\n", *(ep+1));
+    } 
+#endif
+
+    struct mp_ct_io_interrupt_entry *pit_entry = mp_ct_find_pit(hdr);
+
+    struct mp_ct_io_apic_entry *ioapic_entry = mp_ct_find_ioapic(hdr);
+    //kprintf("IOAPIC base: %h\n", ioapic_entry->io_apic_mm_addr);
+
+    // Redirect PIT interrupt
+    u64 redirection_entry = INTR_NUM_PIT;
+    redirection_entry |= (u64)ioapic_entry->io_apic_id << 56;
+    ioapic_redirect(ioapic_entry->io_apic_mm_addr, pit_entry->dst_io_apic_intin, redirection_entry);
+
+
+    // Print info needed for redirection entry to react to virtio interrupt
+    struct mp_ct_io_interrupt_entry *ectio = mp_ct_find_virtio(hdr, 4);
+    kprintf("Virtio redirection entry: %h\n", ectio->dst_io_apic_intin);
+
+    // NOTE: We map device 4 here (net) but device 3 (block) maps to the same IOAPIC entry
+    //       therefore we map the whole virtio device space for now
+
+    // Redirect virtio int net handler
+    u64 virtio_redirection_entry = INTR_NUM_VIRT_NET;
+    virtio_redirection_entry |= (u64)ioapic_entry->io_apic_id << 56;
+    ioapic_redirect(ioapic_entry->io_apic_mm_addr, ectio->dst_io_apic_intin, virtio_redirection_entry);
+
+    // Enable syscalls
+    syscalls_setup();
+
+#if 0
+    // Setup paging
+    struct page_table *pt = (struct page_table*)align(kmalloc(4096), 4096);
+    bzero((u8*)pt, sizeof(struct page_table));
+
+    // Map kernel but this time make it user accessible
+    paging_map_range(pt, 0, 0, 
+        PAGE_PRESENT | PAGE_USER | PAGE_WRITABLE, 
+        align(kernel_limit_addr, 4096),
+        4096);
+
+    // Load new pt
+    //paging_activate(pt);
+
+    // Switch to user mode
+    struct interrupt_context ctx;
+    ctx.rip = (u64)user_func;
+    ctx.cs = (4 << 3) | 3;
+    ctx.rflags = 0x202;
+    ctx.rsp = (u64)user_stack;
+    ctx.ds = (3 << 3) | 3;
+#endif
+
+    intr_setup();
+    pic_disable();
+    intr_enable();
+
+    // Trigger virtio int
+    // TODO: Craft real packet
+    struct eth_head eh = {
+        .mac_dst = {0x42, 0x42, 0x42, 0x42, 0x42, 0x42},
+        .mac_src = {0x43, 0x43, 0x43, 0x43, 0x43, 0x43},
+        .type_field = 0x0008 // IPv4
+    };
+
+    // TODO: Test multiple times
+
+    virtio_net_dev_send(net_dev, (u8*)&eh, sizeof(struct eth_head));
+
+#if 0
     // Test fs...
+    // and trigger virtio interrupts
     struct fs fs;
     fs_init(&fs, &blk_dev, true); 
     
@@ -110,67 +208,11 @@ void kmain(struct multiboot_information *mb_info)
     fs_refl(&fs, handle, (u8*)data, 16);
     
     kprintf("%s\n", data);
-
-    kclear();
-
-    void **page = (void**)kmalloc(4096);
-    struct mp_ct_hdr *hdr = mp_check_ct(mp_search_fps());
-    mp_ct_entries(hdr, page);
-    mp_ct_extended_entries(hdr, page);
-
-    kprintf("Entry count: %d\n", hdr->entry_count);
-
-    for(int i = 0; i < hdr->entry_count; i++)
-    {
-        u8 *ep = page[i];
-        if(*ep == 0)
-            kprintf("APIC ID: %d\n", *(ep+1));
-    } 
-
-    struct mp_ct_io_interrupt_entry *pit_entry = mp_ct_find_pit(hdr);
-
-    struct mp_ct_io_apic_entry *ioapic_entry = mp_ct_find_ioapic(hdr);
-    kprintf("IOAPIC base: %h\n", ioapic_entry->io_apic_mm_addr);
-
-    // Redirect PIT interrupt
-    u64 redirection_entry = INTR_NUM_PIT;
-    redirection_entry |= (u64)ioapic_entry->io_apic_id << 56;
-    ioapic_redirect(ioapic_entry->io_apic_mm_addr, pit_entry->dst_io_apic_intin, redirection_entry);
-
-
-    // Enable syscalls
-    syscalls_setup();
-
-    // Setup paging
-    struct page_table *pt = (struct page_table*)align(kmalloc(4096), 4096);
-    bzero((u8*)pt, sizeof(struct page_table));
-
-#if 0
-    // Map kernel but this time make it user accessible
-    paging_map_range(pt, 0, 0, 
-        PAGE_PRESENT | PAGE_USER | PAGE_WRITABLE, 
-        align(kernel_limit_addr, 4096),
-        4096);
-
-    // Load new pt
-    //paging_activate(pt);
 #endif
 
-    // Switch to user mode
-    struct interrupt_context ctx;
-    ctx.rip = (u64)user_func;
-    ctx.cs = (4 << 3) | 3;
-    ctx.rflags = 0x202;
-    ctx.rsp = (u64)user_stack;
-    ctx.ds = (3 << 3) | 3;
-
-    intr_setup();
-    pic_disable();
-    intr_enable();
- 
+#if 0    
     lapic_t la = lapic_init(0xF1, 0xF2, 0xF3, 0xF4);
 
-    #if 0
     lapic_timer_init(la, 0xF2, true, 1000000, 6);
 
     // Artificial delay
@@ -181,13 +223,13 @@ void kmain(struct multiboot_information *mb_info)
     }
 
     lapic_timer_deinit(la);
-    #endif
-
+    
     bool res = lapic_boot_ap(lapic_fetch(), 1);
     kprintf("RES: %d\n", res);
 
     // Disable PIT after were done
     ioapic_mask(ioapic_entry->io_apic_mm_addr, pit_entry->dst_io_apic_intin, 1);
+#endif
 
     //switch_context(&ctx);
 

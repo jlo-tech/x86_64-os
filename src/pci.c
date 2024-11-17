@@ -222,6 +222,12 @@ u64 pci_bar_addr_space(pci_dev_t *pci_dev, u8 bar_index)
     }
 }
 
+// Returns interrupt pin for device
+u8 pci_intr_pin(pci_dev_t *pci_dev)
+{
+    return (pci_read_dword(pci_dev, 0x3C) >> 8) & 0xFF;
+}
+
 #include <vga.h>
 
 void pci_scan()

@@ -6,6 +6,8 @@
 #include <vga.h>
 #include <types.h>
 
+#define BARRIER asm("mfence");
+
 /*
  * Offsets in Virtio config space
  */
@@ -18,6 +20,15 @@
 #define VIRTIO_HEADER_DEVICE_STATUS   0x12
 #define VIRTIO_HEADER_ISR_STATUS      0x13
 #define VIRTIO_HEADER_DEVICE_OFFSET   0x14 // Offset where the device specific part starts
+
+/**
+ * Device status fields
+ */
+#define VIRTIO_HEADER_DEV_S_ACK     (1)
+#define VIRTIO_HEADER_DEV_S_DRV     (2)
+#define VIRTIO_HEADER_DEV_S_F_OK    (8)
+#define VIRTIO_HEADER_DEV_S_D_OK    (4)
+
 
 /* Buffer continues on next field */
 #define VRING_DESC_F_NEXT 1

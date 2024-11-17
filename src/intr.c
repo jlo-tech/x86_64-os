@@ -3,6 +3,8 @@
 #include <apic.h>
 #include <intr.h>
 
+#include <virtio_net.h>
+
 #define BIT16_MASK 0xffff
 #define BIT32_MASK 0xffffffff
 
@@ -376,6 +378,16 @@ struct cpu_context* intr_handler(struct cpu_context* saved_context, u64 code)
     if(code == INTR_NUM_PIT)
     {
         pit_handle_intr();
+        lapic_end_of_int(lapic_fetch());
+    }
+
+    if(code == INTR_NUM_VIRT_NET)
+    {
+        // Call virtio net irq handler
+        virtio_net_irq_handler();
+
+        // TODO: Rx
+
         lapic_end_of_int(lapic_fetch());
     }
 

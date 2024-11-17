@@ -275,6 +275,88 @@ size_t mp_ct_num_cores(struct mp_ct_hdr *hdr)
     return num_cores;
 }
 
+static bool __mp_check_bus_type_str(char *s0, char *s1)
+{
+    for(int i = 0; i < 6; i++)
+    {
+        if(s0[i] != s1[i])
+            return false;
+    }
+    return true;
+}
+
+struct mp_ct_bus_entry* mp_ct_bus_id(struct mp_ct_hdr *hdr, char *bus_type_str)
+{
+    void **entries = (void**)kmalloc(hdr->entry_count * sizeof(void*)); 
+
+    // Get all entries in the MP base table
+    mp_ct_entries(hdr, entries);
+
+    struct mp_ct_bus_entry *addr = (struct mp_ct_bus_entry*)(-1);
+
+    // Search right bus entry
+    for(int i = 0; i < hdr->entry_count; i++)
+    {
+        u8 *e_type  = (u8*)entries[i];
+        char *e_str = (char*)e_type+2;
+        if(*e_type == 1 && 
+            __mp_check_bus_type_str(e_str, bus_type_str))
+        {
+            addr = (struct mp_ct_bus_entry*)entries[i];
+            break;
+        }
+    }
+
+    kfree((i64)entries);
+
+    return addr;
+}
+
+/**
+ * NOTE: pci_device_number is the number of the device not the id!
+ */
+struct mp_ct_io_interrupt_entry* mp_ct_find_virtio(struct mp_ct_hdr *hdr, u8 pci_device_number)
+{
+    // Get PCI bus entry
+    struct mp_ct_bus_entry *pci_bus = mp_ct_bus_id(hdr, "PCI   ");
+
+    if(pci_bus == (struct mp_ct_bus_entry*)(-1))
+        return (struct mp_ct_io_interrupt_entry*)(-1);
+
+    void **entries = (void**)kmalloc(hdr->entry_count * sizeof(void*)); 
+
+    // Get all entries in the MP base table
+    mp_ct_entries(hdr, entries);
+
+    struct mp_ct_io_interrupt_entry *addr = 
+        (struct mp_ct_io_interrupt_entry*)(-1);
+
+    for(int i = 0; i < hdr->entry_count; i++)
+    {
+        u8 *e_type = (u8*)entries[i];
+        u8 *e_int_type = e_type + 1;
+        u8 *e_src_bus_id = e_type + 4;
+        u8 *e_src_bus_irq = e_type + 5;
+        
+        u8 pci_pin = (*e_src_bus_irq & 0x03);
+        u8 pci_did = (*e_src_bus_irq & 0x7F) >> 2;
+
+        if(*e_type == 3 && 
+           *e_int_type == 0 && 
+           *e_src_bus_id == pci_bus->bus_id &&
+           pci_pin == 0 && // INT_A
+           pci_did == pci_device_number)
+        {
+            addr = (struct mp_ct_io_interrupt_entry*)entries[i];
+            break;
+        }
+    }
+
+    kfree((i64)entries);
+
+    return addr;
+}
+
 /* Local APIC */
 
 lapic_t lapic_init(u8 spurious_interrupt_vector, 
@@ -538,5 +620,5 @@ fail:
 void smp_ap_boot()
 {
     kprintf("AP booted succesfully\n");
-    while(1); // TODO: Do something usefull   
+    while(1); // TODO: Do something useful
 }

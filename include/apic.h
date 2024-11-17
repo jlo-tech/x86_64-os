@@ -132,6 +132,12 @@ struct mp_ct_io_interrupt_entry* mp_ct_find_pit(struct mp_ct_hdr *hdr);
 // Find IOAPIC
 struct mp_ct_io_apic_entry* mp_ct_find_ioapic(struct mp_ct_hdr *hdr);
 
+// Find bus id by string
+struct mp_ct_bus_entry* mp_ct_bus_id(struct mp_ct_hdr *hdr, char *bus_type_str);
+
+// Find Virtio devices
+struct mp_ct_io_interrupt_entry* mp_ct_find_virtio(struct mp_ct_hdr *hdr, u8 pci_device_number);
+
 //-------//
 // LAPIC //
 //-------//

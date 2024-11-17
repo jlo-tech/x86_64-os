@@ -1,7 +1,5 @@
 #include <virtio.h>
 
-#define BARRIER asm("mfence");
-
 static u16 virtq_size(u16 qs)
 {
     return align(sizeof(struct virtq_desc) * qs + 
@@ -175,7 +173,7 @@ bool virtio_deploy(virtio_dev_t *virtio_dev, u16 queue_num, struct virtq_desc *d
     iobase &= 0xFFFFFFFC;
 
     // Notify device
-    outw(iobase + VIRTIO_HEADER_QUEUE_NOTIFY, 0);
+    outw(iobase + VIRTIO_HEADER_QUEUE_NOTIFY, queue_num);
 
     return true;
 }

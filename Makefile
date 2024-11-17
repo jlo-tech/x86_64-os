@@ -27,10 +27,20 @@ iso: kernel
 
 run: iso
 	# Multiple sockets to make qemu generate MP tables
-	@$(QEMU) -cdrom os.iso -smp 4,sockets=4,cores=1,threads=1 -m 8G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk -d int,cpu_reset
+	@$(QEMU) \
+	-cdrom os.iso -smp 4,sockets=4,cores=1,threads=1 \
+	-m 8G -drive id=disk,file=disk.img,format=raw,if=none \
+	-device virtio-blk-pci,drive=disk -d int,cpu_reset \
+	-netdev user,id=n1 -device virtio-net-pci,netdev=n1 \
+	-object filter-dump,id=f1,netdev=n1,file=debug.pcap
 
 debug: iso
-	@$(QEMU) -s -S -cdrom os.iso -smp 4,sockets=4,cores=1,threads=1 -m 8G -drive id=disk,file=disk.img,format=raw,if=none -device virtio-blk-pci,drive=disk -no-reboot -no-shutdown -d int,cpu_reset
+	@$(QEMU) \
+	-s -S -cdrom os.iso -smp 4,sockets=4,cores=1,threads=1 \
+	-m 8G -drive id=disk,file=disk.img,format=raw,if=none \
+	-device virtio-blk-pci,drive=disk -no-reboot -no-shutdown -d int,cpu_reset \
+	-netdev user,id=n1 -device virtio-net-pci,netdev=n1 \
+	-object filter-dump,id=f1,netdev=n1,file=debug.pcap
 
 clean:
 	@rm -r src/asm/*.o
@@ -42,3 +52,4 @@ clean:
 	@rm -r os.iso
 	@python3 wipe.py
 	@rm -r .gdb_history
+	@rm -r debug.pcap

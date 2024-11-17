@@ -85,6 +85,7 @@ void pic_eoi(u8 irq);
 void pic_disable();
 
 // Interrupt number assignments 
-#define INTR_NUM_PIT 0xFF
+#define INTR_NUM_PIT        0xFF
+#define INTR_NUM_VIRT_NET   0xFE
 
 struct cpu_context* intr_handler(struct cpu_context* saved_context, u64 code);
