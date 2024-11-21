@@ -7,6 +7,7 @@
 #include <intr.h>
 #include <sync.h>
 #include <kernel.h>
+#include <net/net.h>
 #include <syscalls.h>
 #include <user_mode.h>
 
@@ -104,7 +105,8 @@ void kmain(struct multiboot_information *mb_info)
 
     virtio_dev_init(&virtio_dev_net, &pci_dev_net, 2);
     virtio_net_dev_init(net_dev, &virtio_dev_net);
-    virtio_register_net_device(net_dev);
+    
+    virtio_net_init(net_dev);
 
     //kprintf("Int pin of virtio blk dev: %d\n", pci_intr_pin(&pci_dev_blk));
     //kprintf("Int pin of virtio net dev: %d\n", pci_intr_pin(&pci_dev_net));
@@ -178,17 +180,36 @@ void kmain(struct multiboot_information *mb_info)
     pic_disable();
     intr_enable();
 
-    // Trigger virtio int
-    // TODO: Craft real packet
-    struct eth_head eh = {
-        .mac_dst = {0x42, 0x42, 0x42, 0x42, 0x42, 0x42},
-        .mac_src = {0x43, 0x43, 0x43, 0x43, 0x43, 0x43},
-        .type_field = 0x0008 // IPv4
-    };
+    u8 mac[6];
+    virtio_net_dev_mac(net_dev, (u8*)&mac);
+    kprintf("MAC: %h:%h:%h:%h:%h:%h", mac[0], mac[1], mac[2], 
+                            mac[3], mac[4], mac[5]);
 
-    // TODO: Test multiple times
 
-    virtio_net_dev_send(net_dev, (u8*)&eh, sizeof(struct eth_head));
+    struct eth_head eth_packet;
+    eth_packet.mac_dst[0] = 0xff;
+    eth_packet.mac_dst[1] = 0xff;
+    eth_packet.mac_dst[2] = 0xff;
+    eth_packet.mac_dst[3] = 0xff;
+    eth_packet.mac_dst[4] = 0xff;
+    eth_packet.mac_dst[5] = 0xff;
+
+    memcpy(eth_packet.mac_src, mac, 6);
+
+    eth_packet.type_field = 0x0608; // ARP
+
+    u8 sip[] = {10, 0, 2, 15};
+    u8 dip[] = {10, 0, 2, 2};
+    struct arp_pkt arp_packet = arp_ipv4_craft_package(mac, sip, dip);
+
+    u8 frame[sizeof(eth_packet) + sizeof(arp_packet)];
+    memcpy(frame, (u8*)&eth_packet, sizeof(eth_packet));
+    memcpy(frame + sizeof(eth_packet), (u8*)&arp_packet, sizeof(arp_packet));
+
+    // TODO: Test multiple times!
+    // TODO: Test recv of arp response
+
+    virtio_net_dev_send(net_dev, (u8*)frame, sizeof(frame));
 
 #if 0
     // Test fs...

@@ -621,4 +621,7 @@ void smp_ap_boot()
 {
     kprintf("AP booted succesfully\n");
     while(1); // TODO: Do something useful
+
+    // TODO: When using multiple cores also make everything locking
+    // e.g. kprintf, memory manager, intr handlers, virtio, ...
 }

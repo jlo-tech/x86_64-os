@@ -44,7 +44,7 @@ struct virtio_net_hdr
     u16 gso_size; 
     u16 csum_start; 
     u16 csum_offset; 
-    //u16 num_buffers; (only when VIRTIO_NET_F_MRG_RXBUF was negotiated)
+    //u16 num_buffers; // (only when VIRTIO_NET_F_MRG_RXBUF was negotiated)
 };
 
 typedef struct virtio_net_dev
@@ -52,8 +52,12 @@ typedef struct virtio_net_dev
     virtio_dev_t *virtio_dev;
 } virtio_net_dev_t;
 
+// Device functions
 bool virtio_net_dev_init(virtio_net_dev_t *net_dev, virtio_dev_t *virtio_dev);
-bool virtio_net_dev_send(virtio_net_dev_t *net_dev, u8 *packet, size_t packet_len);
+void virtio_net_dev_send(virtio_net_dev_t *net_dev, u8 *packet, size_t packet_len);
+void virtio_net_dev_recv(virtio_net_dev_t *net_dev, u8 **packet);
+bool virtio_net_dev_mac(virtio_net_dev_t *net_dev, u8 *mac);
 
-void virtio_register_net_device(virtio_net_dev_t *net_dev);
+// General functions
+void virtio_net_init(virtio_net_dev_t *net_dev);
 void virtio_net_irq_handler();

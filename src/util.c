@@ -1,5 +1,7 @@
 #include <util.h>
 
+#include <pmm.h>
+
 void bzero(u8 *mem, u64 size)
 {
     for(u64 i = 0; i < size; i++)
@@ -449,4 +451,50 @@ void klist_pop(struct klist *root, struct klist_node *node)
             } while(1);
         }
     }
+}
+
+void kqueue_init(struct kqueue *kqueue, size_t capacity)
+{
+    kqueue->head = 0;
+    kqueue->tail = 0;
+    kqueue->capacity = capacity;
+    kqueue->data = (void**)kmalloc(capacity * sizeof(void*));
+}
+
+void kqueue_deinit(struct kqueue *kqueue)
+{
+    kqueue->head = 0;
+    kqueue->tail = 0;
+    kqueue->capacity = 0;
+    kfree((i64)kqueue->data);
+}
+
+bool kqueue_enqueue(struct kqueue *kqueue, void *item)
+{
+    // Buffer full
+    if((kqueue->tail + 1) == kqueue->head)
+    {
+        return false;
+    }
+
+    // Free space available
+    kqueue->data[kqueue->tail] = item;
+    kqueue->tail = (kqueue->tail + 1) % kqueue->capacity;
+
+    return true;
+}
+
+bool kqueue_dequeue(struct kqueue *kqueue, void **item)
+{
+    // Buffer empty
+    if(kqueue->head == kqueue->tail)
+    {
+        return false;
+    }
+
+    // Free space avialable
+    *item = kqueue->data[kqueue->head];
+    kqueue->head = (kqueue->head + 1) % kqueue->capacity;
+
+    return true;
 }

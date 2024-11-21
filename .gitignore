@@ -4,3 +4,4 @@
 *.gdb_history
 *.img
 *.swp
+*.pcap

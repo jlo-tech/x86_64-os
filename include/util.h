@@ -62,3 +62,15 @@ bool klist_empty(struct klist *root);
 void klist_push(struct klist *root, struct klist_node *node);
 void klist_pop(struct klist *root, struct klist_node *node);
 
+struct kqueue
+{
+    size_t head;
+    size_t tail;
+    size_t capacity;
+    void **data;
+};
+
+void kqueue_init(struct kqueue *kqueue, size_t capacity);
+void kqueue_deinit(struct kqueue *kqueue);
+bool kqueue_enqueue(struct kqueue *kqueue, void *item);
+bool kqueue_dequeue(struct kqueue *kqueue, void **item);
