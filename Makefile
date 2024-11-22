@@ -51,10 +51,9 @@ clean:
 	@rm -r src/fs/*.o
 	@rm -r src/net/*.o
 	@rm -r src/*.o
-	@rm -r *.o
 	@rm -r kernel.bin
-	@rm -r iso/boot/kernel.bin
 	@rm -r os.iso
 	@python3 wipe.py
-	@rm -r .gdb_history
 	@rm -r debug.pcap
+	@rm -r iso/boot/kernel.bin
+	@rm -r .gdb_history

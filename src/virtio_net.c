@@ -164,7 +164,6 @@ void virtio_net_dev_send_cleanup(virtio_net_dev_t *net_dev)
      last_used_idx = used_idx;
 }
 
-// TODO: Test
 // Queries packet from system wide queue
 void virtio_net_dev_recv(virtio_net_dev_t *net_dev, u8 **packet)
 {
@@ -238,8 +237,6 @@ void virtio_net_dev_recv_cleanup(virtio_net_dev_t *net_dev, struct kqueue *net_r
 
           // Insert pointer to packet buffer into system wide ring buffer
           kqueue_enqueue(net_ring, (void*)local_desc->addr);
-
-          kprintf("ARP packet received, now check content and test virtio_net_dev_recv()!\n");
      }
 
      // Allocate new recv buffers after old ones were retreived

@@ -208,9 +208,6 @@ void kmain(struct multiboot_information *mb_info)
     memcpy(frame, (u8*)&eth_packet, sizeof(eth_packet));
     memcpy(frame + sizeof(eth_packet), (u8*)&arp_packet, sizeof(arp_packet));
 
-    // TODO: Test multiple times!
-    // TODO: Test recv of arp response
-
     u8 *frame_buf = (u8*)kmalloc(sizeof(frame));
     memcpy((u8*)frame_buf, (u8*)frame, sizeof(frame));
     virtio_net_dev_send(net_dev, (u8*)frame_buf, sizeof(frame));
@@ -223,7 +220,16 @@ void kmain(struct multiboot_information *mb_info)
     memcpy((u8*)frame_buf, (u8*)frame, sizeof(frame));
     virtio_net_dev_send(net_dev, (u8*)frame_buf, sizeof(frame));
 
-    // TODO: Only one packet is received why???
+    // Recv eth-arp packet
+    u8* read_frame = NULL;
+    virtio_net_dev_recv(net_dev, (u8**)&read_frame);
+    // Print
+    kprintf("ETH-ARP: ");
+    for(int i = 0; i < sizeof(eth_packet) + sizeof(arp_packet); i++)
+    {
+        kprintf("%h ", read_frame[i]);
+    }
+    kprintf("\n");
 
 #if 0
     // Test fs...
