@@ -18,11 +18,3 @@ struct arp_pkt arp_ipv4_craft_package(u8 *src_mac, u8 *src_ip, u8 *dst_ip)
 
     return packet;
 }
-
-u8* udp_craft_package(u8 *src_mac, u8 *dst_mac, 
-                      u8 *src_ip, u8 *dst_ip, 
-                      u16 src_port, u16 dst_port, 
-                      u8 *data, size_t data_len)
-{
-    // TODO
-}

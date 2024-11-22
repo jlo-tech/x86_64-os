@@ -138,43 +138,30 @@ void virtio_net_dev_send(virtio_net_dev_t *net_dev, u8 *packet, size_t packet_le
  */
 void virtio_net_dev_send_cleanup(virtio_net_dev_t *net_dev)
 {
-     // Loop through second queue (idx 1) which is the send queue
-     i64 elems = net_dev->virtio_dev->virtqs[1].elems;
-
      // Free already used descriptors by iterating through virtio used queue
      static i64 last_used_idx = 0;
 
-     i64 i = last_used_idx;
+     u16 used_idx = net_dev->virtio_dev->virtqs[1].used->idx;
 
-     while(((i + 1) % elems) == net_dev->virtio_dev->virtqs[1].used->idx)
+     for(i64 i = last_used_idx; i < used_idx; i++)
      {
-          i64 chain_length = 0;
-          // Loop through all chunks of descriptor chain
-          while(1)
-          {
-               // Query current descriptor
-               struct virtq_desc *local_desc = (struct virtq_desc*)
-                    &net_dev->virtio_dev->virtqs[1].desc[i+chain_length];
-               
-               // Free buffer
-               kfree(local_desc->addr);
+          struct virtq_desc *local_desc;
+          // Query current hdr descriptor
+          local_desc = (struct virtq_desc*)
+               &net_dev->virtio_dev->virtqs[1].desc[
+                    net_dev->virtio_dev->virtqs[1].used->ring[i].id+0];     
+          // Free hdr buffer
+          kfree(local_desc->addr);
 
-               // Increase chain length 
-               // (possible since virtio_deploy() places buffer one after another)
-               chain_length++;
-               
-               // Continue with next buffer when arrived at end of chain
-               if((local_desc->flags & VRING_DESC_F_NEXT) == 0)
-               {
-                    break;
-               }
-          }
-
-          // Increase counter
-          i += chain_length;
+          // Query current packet descriptor
+          local_desc = (struct virtq_desc*)
+               &net_dev->virtio_dev->virtqs[1].desc[
+                    net_dev->virtio_dev->virtqs[1].used->ring[i].id+1];
+          // Free packet buffer
+          kfree(local_desc->addr);
      }
 
-     last_used_idx = i;
+     last_used_idx = used_idx;
 }
 
 // TODO: Test
@@ -184,7 +171,6 @@ void virtio_net_dev_recv(virtio_net_dev_t *net_dev, u8 **packet)
      kqueue_dequeue(&net_ring, (void**)packet);
 }
 
-// TODO: Test
 // Places new buffers in the recv queue, 
 void virtio_net_dev_recv_alloc(virtio_net_dev_t *net_dev)
 {
@@ -207,69 +193,62 @@ void virtio_net_dev_recv_alloc(virtio_net_dev_t *net_dev)
      
      desc[0].addr  = (u64)vnh;
      desc[0].len   = sizeof(struct virtio_net_hdr);
-     desc[0].flags = VRING_DESC_F_NEXT;
+     desc[0].flags = VRING_DESC_F_NEXT | VRING_DESC_F_WRITE;
      
      // Maximal packet size we expect
      u32 packet_size = 1514; // Max size of a ethernet frame
 
      desc[1].addr  = (u64)kmalloc(packet_size);
      desc[1].len   = packet_size;
-     desc[1].flags = 0;
+     desc[1].flags = VRING_DESC_F_WRITE;
 
      BARRIER
 
-     // Deploy (to transmit queue) and notify device
+     // Deploy (to receive queue) and notify device
      virtio_deploy(net_dev->virtio_dev, 0, desc, 2);
 
      // Free resources after virtio_deploy() copied them
      kfree((i64)desc);
 }
 
-// TODO: Test
 // Copies buffers that contain network packets into systems ring buffer
 void virtio_net_dev_recv_cleanup(virtio_net_dev_t *net_dev, struct kqueue *net_ring)
 {
-     // Loop through first queue (idx 0) which is the recv queue
-     i64 elems = net_dev->virtio_dev->virtqs[0].elems;
-
      // Free already used descriptors by iterating through virtio used queue
      static i64 last_used_idx = 0;
 
-     i64 i = last_used_idx;
+     u16 used_idx = net_dev->virtio_dev->virtqs[0].used->idx;
 
-     while(((i + 1) % elems) == net_dev->virtio_dev->virtqs[0].used->idx)
+     for(i64 i = last_used_idx; i < used_idx; i++)
      {
           struct virtq_desc *local_desc;
 
           // Query current hdr descriptor
           local_desc = (struct virtq_desc*)
-               &net_dev->virtio_dev->virtqs[0].desc[i+0];
+               &net_dev->virtio_dev->virtqs[0].desc[
+                    net_dev->virtio_dev->virtqs[0].used->ring[i].id+0];
                
           // Free hdr buffer
           kfree(local_desc->addr);
 
           // Query current packet descriptor
           local_desc = (struct virtq_desc*)
-               &net_dev->virtio_dev->virtqs[0].desc[i+1];
-
+               &net_dev->virtio_dev->virtqs[0].desc[
+                    net_dev->virtio_dev->virtqs[0].used->ring[i].id+1];
 
           // Insert pointer to packet buffer into system wide ring buffer
           kqueue_enqueue(net_ring, (void*)local_desc->addr);
-          
-          // TODO: Remove
-          kprintf("Enqueue packet...");
 
-          // Increase counter
-          i += 2;
+          kprintf("ARP packet received, now check content and test virtio_net_dev_recv()!\n");
      }
 
      // Allocate new recv buffers after old ones were retreived
-     for(i64 j = 0; j < (i - last_used_idx); j++)
+     for(i64 j = 0; j < (used_idx - last_used_idx); j++)
      {
           virtio_net_dev_recv_alloc(net_dev);
      }
 
-     last_used_idx = i;
+     last_used_idx = used_idx;
 }
 
 void virtio_net_init(virtio_net_dev_t *net_dev)
@@ -292,8 +271,18 @@ void virtio_net_init(virtio_net_dev_t *net_dev)
 
 void virtio_net_irq_handler()
 {
-     // Cleanup send stuff
-     virtio_net_dev_send_cleanup(main_net_dev);
-     // Cleanup recv stuff
-     virtio_net_dev_recv_cleanup(main_net_dev, &net_ring);
+     // Get iobase of device
+     u32 iobase = pci_bar(main_net_dev->virtio_dev->pci_dev, 0);
+     // Get only address from bar
+     iobase &= 0xFFFFFFFC;
+     // Reset ISR by reading it
+     u8 isr = inb(iobase + VIRTIO_HEADER_ISR_STATUS);
+     // Check for virtq changes
+     if((isr & 1))
+     {
+          // Cleanup send stuff
+          virtio_net_dev_send_cleanup(main_net_dev);
+          // Cleanup recv stuff
+          virtio_net_dev_recv_cleanup(main_net_dev, &net_ring);
+     }
 }

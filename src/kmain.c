@@ -180,9 +180,11 @@ void kmain(struct multiboot_information *mb_info)
     pic_disable();
     intr_enable();
 
+    kclear();
+
     u8 mac[6];
     virtio_net_dev_mac(net_dev, (u8*)&mac);
-    kprintf("MAC: %h:%h:%h:%h:%h:%h", mac[0], mac[1], mac[2], 
+    kprintf("MAC: %h:%h:%h:%h:%h:%h \n", mac[0], mac[1], mac[2], 
                             mac[3], mac[4], mac[5]);
 
 
@@ -209,7 +211,19 @@ void kmain(struct multiboot_information *mb_info)
     // TODO: Test multiple times!
     // TODO: Test recv of arp response
 
-    virtio_net_dev_send(net_dev, (u8*)frame, sizeof(frame));
+    u8 *frame_buf = (u8*)kmalloc(sizeof(frame));
+    memcpy((u8*)frame_buf, (u8*)frame, sizeof(frame));
+    virtio_net_dev_send(net_dev, (u8*)frame_buf, sizeof(frame));
+
+    frame_buf = (u8*)kmalloc(sizeof(frame));
+    memcpy((u8*)frame_buf, (u8*)frame, sizeof(frame));
+    virtio_net_dev_send(net_dev, (u8*)frame_buf, sizeof(frame));
+
+    frame_buf = (u8*)kmalloc(sizeof(frame));
+    memcpy((u8*)frame_buf, (u8*)frame, sizeof(frame));
+    virtio_net_dev_send(net_dev, (u8*)frame_buf, sizeof(frame));
+
+    // TODO: Only one packet is received why???
 
 #if 0
     // Test fs...

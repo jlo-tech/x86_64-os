@@ -386,8 +386,6 @@ struct cpu_context* intr_handler(struct cpu_context* saved_context, u64 code)
         // Call virtio net irq handler
         virtio_net_irq_handler();
 
-        // TODO: Rx
-
         lapic_end_of_int(lapic_fetch());
     }
 
