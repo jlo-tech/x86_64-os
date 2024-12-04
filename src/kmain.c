@@ -187,49 +187,47 @@ void kmain(struct multiboot_information *mb_info)
     kprintf("MAC: %h:%h:%h:%h:%h:%h \n", mac[0], mac[1], mac[2], 
                             mac[3], mac[4], mac[5]);
 
-
-    struct eth_head eth_packet;
-    eth_packet.mac_dst[0] = 0xff;
-    eth_packet.mac_dst[1] = 0xff;
-    eth_packet.mac_dst[2] = 0xff;
-    eth_packet.mac_dst[3] = 0xff;
-    eth_packet.mac_dst[4] = 0xff;
-    eth_packet.mac_dst[5] = 0xff;
-
-    memcpy(eth_packet.mac_src, mac, 6);
-
-    eth_packet.type_field = 0x0608; // ARP
-
     u8 sip[] = {10, 0, 2, 15};
     u8 dip[] = {10, 0, 2, 2};
-    struct arp_pkt arp_packet = arp_ipv4_craft_package(mac, sip, dip);
 
-    u8 frame[sizeof(eth_packet) + sizeof(arp_packet)];
-    memcpy(frame, (u8*)&eth_packet, sizeof(eth_packet));
-    memcpy(frame + sizeof(eth_packet), (u8*)&arp_packet, sizeof(arp_packet));
+#if 0
+    u8 *frame = arp_ipv4_craft_packet(mac, sip, dip);
 
-    u8 *frame_buf = (u8*)kmalloc(sizeof(frame));
-    memcpy((u8*)frame_buf, (u8*)frame, sizeof(frame));
-    virtio_net_dev_send(net_dev, (u8*)frame_buf, sizeof(frame));
-
-    frame_buf = (u8*)kmalloc(sizeof(frame));
-    memcpy((u8*)frame_buf, (u8*)frame, sizeof(frame));
-    virtio_net_dev_send(net_dev, (u8*)frame_buf, sizeof(frame));
-
-    frame_buf = (u8*)kmalloc(sizeof(frame));
-    memcpy((u8*)frame_buf, (u8*)frame, sizeof(frame));
-    virtio_net_dev_send(net_dev, (u8*)frame_buf, sizeof(frame));
+    virtio_net_dev_send(net_dev, (u8*)frame, sizeof(struct eth_head) + sizeof(struct arp_head));
+    frame = arp_ipv4_craft_packet(mac, sip, dip);
+    virtio_net_dev_send(net_dev, (u8*)frame, sizeof(struct eth_head) + sizeof(struct arp_head));
 
     // Recv eth-arp packet
     u8* read_frame = NULL;
     virtio_net_dev_recv(net_dev, (u8**)&read_frame);
+    virtio_net_dev_recv(net_dev, (u8**)&read_frame);
     // Print
     kprintf("ETH-ARP: ");
-    for(int i = 0; i < sizeof(eth_packet) + sizeof(arp_packet); i++)
+    for(size_t i = 0; i < sizeof(struct eth_head) + sizeof(struct arp_head); i++)
     {
         kprintf("%h ", read_frame[i]);
     }
     kprintf("\n");
+#endif
+
+#if 1
+    u8 router_mac[] = {0x52, 0x54, 0x00, 0x12, 0x34, 0x56};
+
+    u8 *frame = udp_ipv4_craft_packet(mac, router_mac, 
+                          sip, 
+                          dip, 
+                          4444, 
+                          4444, 
+                          (u8*)"Hello, World!", 
+                          sizeof("Hello, World!"));
+    
+    virtio_net_dev_send(net_dev, (u8*)frame, 
+                        sizeof(struct eth_head) + 
+                        sizeof(struct ipv4_head) + 
+                        sizeof(struct udp_head) + 
+                        sizeof("Hello, World!"));
+    
+#endif
 
 #if 0
     // Test fs...

@@ -8,9 +8,9 @@ struct eth_head
     u8 mac_dst[6];
     u8 mac_src[6];
     u16 type_field;
-};
+} __attribute__((packed));
 
-struct arp_pkt
+struct arp_head
 {
     u16 hw_addr_type;
     u16 proto_addr_type;
@@ -21,7 +21,7 @@ struct arp_pkt
     u8 src_ip[4];
     u8 dst_mac[6];
     u8 dst_ip[4];
-};
+} __attribute__((packed));
 
 struct ipv4_head
 {
@@ -33,10 +33,10 @@ struct ipv4_head
     u8 ttl;
     u8 proto;
     u16 hdr_csum;
-    u32 source_addr;
-    u32 dest_addr;
+    u32 src_addr;
+    u32 dst_addr;
     // u8 options[];
-};
+} __attribute__((packed));
 
 struct udp_head
 {
@@ -44,13 +44,13 @@ struct udp_head
     u16 dst_port;
     u16 len;
     u16 csum;
-};
+} __attribute__((packed));
 
-struct arp_pkt arp_ipv4_craft_package(u8 *src_mac, 
-                                       u8 *src_ip, 
-                                       u8 *dst_ip);
-
-struct udp_head udp_craft_header(u8 *src_mac, u8 *dst_mac, 
-                      u8 *src_ip, u8 *dst_ip, 
-                      u16 src_port, u16 dst_port, 
-                      u8 *data, size_t data_len);
+u8* udp_ipv4_craft_packet(u8 *src_mac, 
+                          u8 *dst_mac, 
+                          u8 *src_ip, 
+                          u8 *dst_ip, 
+                          u16 src_port, 
+                          u16 dst_port, 
+                          u8 *data, 
+                          u16 data_len);
