@@ -10,6 +10,8 @@ OBJNET = $(patsubst %.c, %.o, $(wildcard src/net/*.c))
 OBJC   = $(patsubst %.c, %.o, $(wildcard src/*.c))
 OBJA   = $(patsubst %.asm, %.o, $(wildcard src/asm/*.asm))
 
+GMK := $(shell grub-mkrescue --version 2>/dev/null)
+
 src/%.o: src/%.c
 	@$(CC) $(CFLAGS) -o $@ $^
 
@@ -27,7 +29,11 @@ kernel: $(OBJC) $(OBJA) $(OBJFS) $(OBJNET)
 
 iso: kernel
 	@cp kernel.bin iso/boot/
+ifdef GMK
+	@grub-mkrescue -o os.iso iso
+else
 	@grub2-mkrescue -o os.iso iso
+endif
 
 run: iso
 	# Multiple sockets to make qemu generate MP tables
