@@ -3,12 +3,11 @@
 #include <pmm.h>
 #include <sync.h>
 #include <util.h>
+#include <net/net.h>
 
 // Main network device the kernel operates on
-// TODO: Build advanced data structure to handle multiple devices and map queues to devices
-static virtio_net_dev_t *main_net_dev;
-
-static struct kqueue net_ring;
+// TODO: Build advanced data structure to handle multiple devices
+virtio_net_dev_t *main_net_dev;
 
 bool virtio_net_dev_init(virtio_net_dev_t *net_dev, virtio_dev_t *virtio_dev)
 {
@@ -167,7 +166,7 @@ void virtio_net_dev_send_cleanup(virtio_net_dev_t *net_dev)
 // Queries packet from system wide queue
 void virtio_net_dev_recv(virtio_net_dev_t *net_dev, u8 **packet)
 {
-     kqueue_dequeue(&net_ring, (void**)packet);
+     // TODO
 }
 
 // Places new buffers in the recv queue, 
@@ -211,7 +210,7 @@ void virtio_net_dev_recv_alloc(virtio_net_dev_t *net_dev)
 }
 
 // Copies buffers that contain network packets into systems ring buffer
-void virtio_net_dev_recv_cleanup(virtio_net_dev_t *net_dev, struct kqueue *net_ring)
+void virtio_net_dev_recv_cleanup(virtio_net_dev_t *net_dev)
 {
      // Free already used descriptors by iterating through virtio used queue
      static i64 last_used_idx = 0;
@@ -235,8 +234,8 @@ void virtio_net_dev_recv_cleanup(virtio_net_dev_t *net_dev, struct kqueue *net_r
                &net_dev->virtio_dev->virtqs[0].desc[
                     net_dev->virtio_dev->virtqs[0].used->ring[i].id+1];
 
-          // Insert pointer to packet buffer into system wide ring buffer
-          kqueue_enqueue(net_ring, (void*)local_desc->addr);
+          // Handle incoming packet
+          net_handle_packet((void*)local_desc->addr);
      }
 
      // Allocate new recv buffers after old ones were retreived
@@ -255,9 +254,6 @@ void virtio_net_init(virtio_net_dev_t *net_dev)
 
      // Capacity of recv virtq
      i64 recv_virtq_elems = net_dev->virtio_dev->virtqs[0].elems;
-
-     // Init net queue
-     kqueue_init(&net_ring, recv_virtq_elems);
 
      // Allocate recv buffers
      for(int i = 0; i < recv_virtq_elems; i++)
@@ -280,6 +276,6 @@ void virtio_net_irq_handler()
           // Cleanup send stuff
           virtio_net_dev_send_cleanup(main_net_dev);
           // Cleanup recv stuff
-          virtio_net_dev_recv_cleanup(main_net_dev, &net_ring);
+          virtio_net_dev_recv_cleanup(main_net_dev);
      }
 }

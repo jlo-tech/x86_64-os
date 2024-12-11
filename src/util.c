@@ -492,9 +492,142 @@ bool kqueue_dequeue(struct kqueue *kqueue, void **item)
         return false;
     }
 
-    // Free space avialable
+    // Item avialable
     *item = kqueue->data[kqueue->head];
     kqueue->head = (kqueue->head + 1) % kqueue->capacity;
 
     return true;
+}
+
+bool kqueue_peek(struct kqueue *kqueue, void **item)
+{
+    // Buffer empty
+    if(kqueue->head == kqueue->tail)
+    {
+        return false;
+    }
+
+    // Item avialable
+    *item = kqueue->data[kqueue->head];
+
+    return true;
+}
+
+#define kmap_index_key(kmap, index) \
+            ((u8*)kmap->keys + (kmap->key_size * index))
+
+#define kmap_index_val(kmap, index) \
+            ((u8*)kmap->vals + (kmap->val_size * index))
+    
+void kmap_init(struct kmap *kmap, size_t capacity, size_t key_size, size_t val_size)
+{
+    kmap->capacity = capacity;
+    kmap->key_size = key_size;
+    kmap->val_size = val_size;
+    kmap->keys  = (void*)kmalloc(capacity * key_size);
+    kmap->vals  = (void*)kmalloc(capacity * val_size);
+    kmap->bitmap = (u64*)kmalloc((capacity / 64) + 1);
+    // Clear bitmap
+    bzero((u8*)kmap->bitmap, (capacity / 64) + 1);
+}
+
+// Check if an entry is used
+static bool kmap_is_free_or_used(struct kmap *kmap, size_t index)
+{
+    if(index >= kmap->capacity)
+        return false;
+
+    // Returns 1 when used and 0 when free
+    return (kmap->bitmap[index / 64] >> (index % 64)) & 1;
+}
+
+// Toggle entry mark from free to used and vice versa
+static void kmap_toggle(struct kmap *kmap, size_t index)
+{
+    if(index >= kmap->capacity)
+        return;
+
+    kmap->bitmap[index / 64] ^= (1 << (index % 64));
+}
+
+// Returns next free index (index is out var)
+static bool kmap_next(struct kmap *kmap, size_t *index)
+{
+    for(size_t i = 0; i < (kmap->capacity / 64) + 1; i++)
+    {
+        if(kmap->bitmap[i] != 0xFFFFFFFFFFFFFFFF)
+        {
+            for(size_t j = 0; j < 64; j++)
+            {
+                if(!((kmap->bitmap[i] >> j) & 1))
+                {
+                    *index = (i * 64 + j);
+                    return true;
+                }
+            }
+        }
+    }
+}
+
+void kmap_new(struct kmap *kmap, void *key, void *val)
+{
+    size_t pos;
+    
+    // Check if there is still free space, else return
+    if(!kmap_next(kmap, &pos))
+    {
+        return;
+    }
+
+    // Mark as used
+    kmap_toggle(kmap, pos);
+
+    // Copy key and val
+    memcpy(kmap_index_key(kmap, pos), key, kmap->key_size);
+    memcpy(kmap_index_val(kmap, pos), val, kmap->val_size);
+}
+
+void kmap_get(struct kmap *kmap, void *key, void *val)
+{
+    u8 *ckey = (u8*)key;
+
+    for(size_t i = 0; i < kmap->capacity; i++)
+    {
+        if(memcmp((u8*)kmap->keys + (kmap->key_size * i), ckey, kmap->key_size))
+        {
+            // Copy value
+            memcpy(val, kmap_index_val(kmap, i), kmap->val_size);
+            return;
+        }
+    }
+}
+
+bool kmap_contains(struct kmap *kmap, void *key)
+{
+    u8 *ckey = (u8*)key;
+
+    for(size_t i = 0; i < kmap->capacity; i++)
+    {
+        if(memcmp(kmap_index_key(kmap, i), ckey, kmap->key_size))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void kmap_del(struct kmap *kmap, void *key)
+{
+     u8 *ckey = (u8*)key;
+
+    for(size_t i = 0; i < kmap->capacity; i++)
+    {
+        if(memcmp(kmap_index_key(kmap, i), ckey, kmap->key_size))
+        {
+            // Mark entry in bitmap as free
+            kmap->bitmap[i / 64] ^= (1 << (i % 64));
+            return;
+        }
+    }
 }

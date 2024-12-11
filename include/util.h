@@ -74,3 +74,21 @@ void kqueue_init(struct kqueue *kqueue, size_t capacity);
 void kqueue_deinit(struct kqueue *kqueue);
 bool kqueue_enqueue(struct kqueue *kqueue, void *item);
 bool kqueue_dequeue(struct kqueue *kqueue, void **item);
+bool kqueue_peek(struct kqueue *kqueue, void **item);
+
+// Statically sized (and non optimized) map
+struct kmap
+{
+    size_t capacity;
+    size_t key_size;
+    size_t val_size;
+    void *keys;
+    void *vals;
+    u64 *bitmap;
+};
+
+void kmap_init(struct kmap *kmap, size_t capacity, size_t key_size, size_t val_size);
+void kmap_new(struct kmap *kmap, void *key, void *val);
+void kmap_get(struct kmap *kmap, void *key, void *val);
+void kmap_del(struct kmap *kmap, void *key);
+bool kmap_contains(struct kmap *kmap, void *key);

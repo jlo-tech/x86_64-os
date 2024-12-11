@@ -2,6 +2,8 @@
 
 #include <types.h>
 
+// TODO: Use something like sk_buff here
+
 // Ethernet header
 struct eth_head
 {
@@ -54,3 +56,7 @@ u8* udp_ipv4_craft_packet(u8 *src_mac,
                           u16 dst_port, 
                           u8 *data, 
                           u16 data_len);
+
+void net_init();
+void net_mapping(u8 *ipv4_addr, u8 *mac_addr);
+void net_handle_packet(void *pkt_ptr);

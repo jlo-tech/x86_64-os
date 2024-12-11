@@ -2,8 +2,28 @@
 
 #include <pmm.h>
 #include <util.h>
+#include <virtio_net.h>
 
-u8* arp_ipv4_craft_packet(u8 *src_mac, u8 *src_ip, u8 *dst_ip)
+#include <vga.h>
+
+static struct kmap ip_to_mac;
+
+void net_init()
+{
+    kmap_init(&ip_to_mac, 16, 4, 6);
+}
+
+// Map IP to Mac addr
+void net_mapping(u8 *ipv4_addr, u8 *mac_addr)
+{
+    kmap_new(&ip_to_mac, ipv4_addr, mac_addr);
+}
+
+/**
+  * operation: 0 == request or 1 == response
+  * Note: on request dst_mac can be NULL
+ */
+u8* arp_ipv4_craft_packet(u8 operation, u8 *src_mac, u8 *dst_mac, u8 *src_ip, u8 *dst_ip)
 {
     struct eth_head eth_head;
 
@@ -25,10 +45,18 @@ u8* arp_ipv4_craft_packet(u8 *src_mac, u8 *src_ip, u8 *dst_ip)
     arp_head.proto_addr_type = 0x0008; // IPv4
     arp_head.hw_addr_size = 6;
     arp_head.proto_addr_size = 4;
-    arp_head.operation = 256; // ARP request
+    arp_head.operation = 256 << operation; // ARP request
     memcpy(arp_head.src_mac, src_mac, 6);
     memcpy(arp_head.src_ip, src_ip, 4);
-    bzero(arp_head.dst_mac, 6);
+    // Req or Res
+    if(operation)
+    {
+        memcpy(arp_head.dst_mac, dst_mac, 6);
+    }
+    else
+    {
+        bzero(arp_head.dst_mac, 6);
+    }
     memcpy(arp_head.dst_ip, dst_ip, 4);
 
     // Craft full packet
@@ -189,4 +217,60 @@ u8* udp_ipv4_craft_packet(u8 *src_mac,
 
     // Return packet
     return pkt;
+}
+
+static bool mac_is_broadcast(u8 *mac)
+{
+    for(size_t i = 0; i < 6; i++)
+    {
+        if(mac[i] != 0xFF)
+            return false;
+    }
+    return true;
+}
+
+extern virtio_net_dev_t *main_net_dev;
+
+// Respond to ARP packages
+void net_handle_arp_packet(void *pkt)
+{
+    // Get Pointer to Arp part of package
+    struct eth_head *eth_hdr = (struct eth_head*)pkt;
+    struct arp_head *arp_hdr = (struct arp_head*)((u8*)pkt + sizeof(struct eth_head));
+
+    // Check if ARP packet is for us
+    if(mac_is_broadcast(eth_hdr->mac_dst) && kmap_contains(&ip_to_mac, arp_hdr->dst_ip))
+    {
+        // Get own mac
+        u8 mac[6];
+        kmap_get(&ip_to_mac, arp_hdr->dst_ip, mac);
+        // Craft response and reply
+        u8 *arp_res = arp_ipv4_craft_packet(1, mac, arp_hdr->src_mac, arp_hdr->dst_ip, arp_hdr->src_ip);
+        // Send response
+        virtio_net_dev_send(main_net_dev, arp_res, sizeof(struct eth_head) + sizeof(struct arp_head));
+    }
+}
+
+void net_handle_packet(void *pkt_ptr)
+{
+    struct eth_head *eth_hdr = (struct eth_head*)pkt_ptr;
+
+    switch(eth_hdr->type_field)
+    {
+        case 0x0608: // ARP
+            // TODO: Remove
+            kprintf("Got ARP\n");
+            net_handle_arp_packet(pkt_ptr);
+            break;
+        
+        case 0x0008: // IPv4
+            // TODO: Remove
+            kprintf("Got IP\n");
+            break;
+
+        default:
+            // Just drop package by freeing memory
+            kfree((i64)pkt_ptr);
+            break;
+    }
 }

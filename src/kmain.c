@@ -187,6 +187,11 @@ void kmain(struct multiboot_information *mb_info)
     kprintf("MAC: %h:%h:%h:%h:%h:%h \n", mac[0], mac[1], mac[2], 
                             mac[3], mac[4], mac[5]);
 
+    u8 ip[4] = {10, 0, 2, 15};
+
+    net_init();
+    net_mapping(ip, mac);
+
     u8 sip[] = {10, 0, 2, 15};
     u8 dip[] = {10, 0, 2, 2};
 
