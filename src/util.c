@@ -567,6 +567,7 @@ static bool kmap_next(struct kmap *kmap, size_t *index)
             }
         }
     }
+    return false;
 }
 
 void kmap_new(struct kmap *kmap, void *key, void *val)

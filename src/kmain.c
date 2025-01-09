@@ -31,16 +31,7 @@ const u64 kernel_limit_addr = (u64)&kernel_limit;
 
 extern void switch_context(struct interrupt_context *ctx);
 char __attribute__((aligned(4096))) user_stack[4096];
-void user_func()
-{
-    while(1)
-    {
-        asm volatile(
-            "mov $777, %rdi\n" 
-            "syscall \n"
-        );
-    }
-}
+extern void user_func();
 
 void kmain(struct multiboot_information *mb_info)
 {
@@ -167,14 +158,15 @@ void kmain(struct multiboot_information *mb_info)
     // Load new pt
     //paging_activate(pt);
 
+#endif
+
     // Switch to user mode
     struct interrupt_context ctx;
     ctx.rip = (u64)user_func;
     ctx.cs = (4 << 3) | 3;
     ctx.rflags = 0x202;
     ctx.rsp = (u64)user_stack;
-    ctx.ds = (3 << 3) | 3;
-#endif
+    ctx.ss = (3 << 3) | 3;
 
     intr_setup();
     pic_disable();
@@ -182,6 +174,7 @@ void kmain(struct multiboot_information *mb_info)
 
     kclear();
 
+#if 0
     u8 mac[6];
     virtio_net_dev_mac(net_dev, (u8*)&mac);
     kprintf("MAC: %h:%h:%h:%h:%h:%h \n", mac[0], mac[1], mac[2], 
@@ -194,6 +187,7 @@ void kmain(struct multiboot_information *mb_info)
 
     u8 sip[] = {10, 0, 2, 15};
     u8 dip[] = {10, 0, 2, 2};
+#endif
 
 #if 0
     u8 *frame = arp_ipv4_craft_packet(mac, sip, dip);
@@ -215,7 +209,7 @@ void kmain(struct multiboot_information *mb_info)
     kprintf("\n");
 #endif
 
-#if 1
+#if 0
     u8 router_mac[] = {0x52, 0x54, 0x00, 0x12, 0x34, 0x56};
 
     u8 *frame = udp_ipv4_craft_packet(mac, router_mac, 
@@ -275,7 +269,7 @@ void kmain(struct multiboot_information *mb_info)
     ioapic_mask(ioapic_entry->io_apic_mm_addr, pit_entry->dst_io_apic_intin, 1);
 #endif
 
-    //switch_context(&ctx);
+    switch_context(&ctx);
 
     // Wait for interrupts
     while(1) 

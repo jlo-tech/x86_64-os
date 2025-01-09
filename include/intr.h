@@ -68,7 +68,14 @@ struct interrupt_context
     u64 cs;
     u64 rflags;
     u64 rsp;
-    u64 ds;
+    u64 ss;
+} __attribute__((packed));
+
+struct global_context 
+{
+    struct cpu_context cpu_context;          // Saved by OS handler
+    u64 info;                                // (Error code) Pushed by ISR
+    struct interrupt_context intr_context;   // Saved by CPU
 } __attribute__((packed));
 
 // Primary PIC
@@ -88,4 +95,4 @@ void pic_disable();
 #define INTR_NUM_PIT        0xFF
 #define INTR_NUM_VIRT_NET   0xFE
 
-struct cpu_context* intr_handler(struct cpu_context* saved_context, u64 code);
+struct global_context* intr_handler(struct global_context* saved_task);

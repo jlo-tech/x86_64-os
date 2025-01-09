@@ -370,18 +370,18 @@ void pic_disable()
  * context: saved cpu context
  * code: number of interrupt/exception
 */
-struct cpu_context* intr_handler(struct cpu_context* saved_context, u64 code)
+struct global_context* intr_handler(struct global_context* saved_context)
 {
     //kprintf("Interrupt [%d]\n", code);
 
     // Handle PIT (timer) interrupt and make pit_delay() work
-    if(code == INTR_NUM_PIT)
+    if(saved_context->info == INTR_NUM_PIT)
     {
         pit_handle_intr();
         lapic_end_of_int(lapic_fetch());
     }
 
-    if(code == INTR_NUM_VIRT_NET)
+    if(saved_context->info == INTR_NUM_VIRT_NET)
     {
         // Call virtio net irq handler
         virtio_net_irq_handler();

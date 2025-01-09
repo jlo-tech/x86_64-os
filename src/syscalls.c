@@ -1,5 +1,6 @@
 #include <io.h>
 #include <vga.h>
+#include <intr.h>
 #include <syscalls.h>
 
 extern void kernel_stack;
@@ -18,7 +19,7 @@ void syscalls_setup()
     // Init kernel root struct
     kernel_root_struct.kernel_stack = (u64)&kernel_stack;
 
-    // Set stack for syscall handler
+    // Set root struct for syscall handler
     wmsr(MSR_IA32_KERNEL_GS_BASE, (u64)&kernel_root_struct);
 
     // Set segment selectors in STAR register
@@ -32,12 +33,29 @@ void syscalls_setup()
     wmsr(MSR_IA32_EFER, rmsr(MSR_IA32_EFER) | 1);
 }
 
+/* Syscalls */
+
+void do_print(u8* str)
+{
+    kprintf("%s", str);
+}
+
 /*
  * Syscall handler
  */
-u64 do_syscall(u64 syscall_number)
+u64 do_syscall(struct cpu_context *ctx)
 {
-    kprintf("Syscall no %d\n", syscall_number);
+    kprintf("Syscall no %d\n", ctx->rdi);
+
+    switch(ctx->rdi)
+    {
+        case 0:
+            do_print((u8*)ctx->rsi);
+            break;
+
+        default:
+            break;
+    }
 
     return 0;
 }
