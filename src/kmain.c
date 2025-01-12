@@ -6,6 +6,7 @@
 #include <apic.h>
 #include <intr.h>
 #include <sync.h>
+#include <tasks.h>
 #include <kernel.h>
 #include <net/net.h>
 #include <syscalls.h>
@@ -29,9 +30,10 @@ extern void kernel_limit;
 const u64 kernel_base_addr  = (u64)&kernel_base;
 const u64 kernel_limit_addr = (u64)&kernel_limit;
 
-extern void switch_context(struct interrupt_context *ctx);
-char __attribute__((aligned(4096))) user_stack[4096];
+// Tasking related
 extern void user_func();
+extern struct page_table page_id_ptr;
+char __attribute__((aligned(4096))) user_stack[4096];
 
 void kmain(struct multiboot_information *mb_info)
 {
@@ -160,14 +162,6 @@ void kmain(struct multiboot_information *mb_info)
 
 #endif
 
-    // Switch to user mode
-    struct interrupt_context ctx;
-    ctx.rip = (u64)user_func;
-    ctx.cs = (4 << 3) | 3;
-    ctx.rflags = 0x202;
-    ctx.rsp = (u64)user_stack;
-    ctx.ss = (3 << 3) | 3;
-
     intr_setup();
     pic_disable();
     intr_enable();
@@ -269,7 +263,26 @@ void kmain(struct multiboot_information *mb_info)
     ioapic_mask(ioapic_entry->io_apic_mm_addr, pit_entry->dst_io_apic_intin, 1);
 #endif
 
-    switch_context(&ctx);
+
+    // Prepare task
+    struct tcb task;
+    tcb_init(&task);
+
+    task.tid = 0;
+    
+    bzero((u8*)&task.cpu_ctx, sizeof(struct cpu_context)); // zero out all regs
+    task.cpu_ctx.rbp = (u64)(user_stack+2048);
+
+    task.int_ctx.rip = (u64)user_func;
+    task.int_ctx.cs = (4 << 3) | 3;
+    task.int_ctx.rflags = 0x202;
+    task.int_ctx.rsp = (u64)(user_stack+2048);
+    task.int_ctx.ss = (3 << 3) | 3;
+
+    task.vmm_ctx = &page_id_ptr;
+
+    // Run task
+    tcb_schedule(&task);
 
     // Wait for interrupts
     while(1) 

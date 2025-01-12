@@ -1,5 +1,7 @@
 #include <tasks.h>
 
+extern void schedule_task(struct tcb *task); // src/asm/interrupts.asm
+
 // Basic init of tcb
 void tcb_init(struct tcb *tcb)
 {
@@ -12,3 +14,7 @@ void tcb_init(struct tcb *tcb)
     mutex_init(&tcb->lock);
 }
 
+void tcb_schedule(struct tcb *task)
+{
+    schedule_task(task);
+}

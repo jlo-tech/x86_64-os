@@ -1,10 +1,9 @@
 #pragma once
 
+#include <vmm.h>
 #include <intr.h>
 #include <util.h>
 #include <sync.h>
-
-extern void dummy_task();
 
 // Thread/Task control block
 struct tcb 
@@ -13,10 +12,22 @@ struct tcb
 
     struct cpu_context cpu_ctx;
     struct interrupt_context int_ctx;
-
-    struct klist_node list_node;
+    struct page_table *vmm_ctx;
 
     mutex_t lock;
+    struct klist_node list_node;
+
 } __attribute__((packed));
 
 void tcb_init(struct tcb *tcb);
+
+void tcb_schedule(struct tcb *task);
+
+// Scheduler struct
+struct sched 
+{
+    mutex_t lock;
+    struct klist_node *task_list;
+};
+
+// TODO: Implement scheduler

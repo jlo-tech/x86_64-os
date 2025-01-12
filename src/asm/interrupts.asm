@@ -5,6 +5,7 @@ bits 64
 extern intr_handler
 
 global switch_context
+global schedule_task
 
 section .text
 
@@ -58,4 +59,20 @@ switch_context:
     ; Load interrupt context
     mov rsp, rdi
     ; Do actual switch
+    iretq
+
+; Run task on cpu
+; schedule_task(struct tcb *task)
+schedule_task:
+    ; load page table
+    mov rax, [rdi+(8+15*8+5*8)] ; add sizeof(cpu_ctx) + sizeof(int_ctx) to load vmm_ctx
+    mov cr3, rax
+
+    ; load registers from cpu_ctx
+    lea rsp, [rdi+8]
+    restore_context
+    
+    ; poping off registers leaves us int_ctx on stack
+
+    ; do actual context switch
     iretq

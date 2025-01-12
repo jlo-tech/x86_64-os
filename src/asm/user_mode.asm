@@ -10,9 +10,3 @@ tss_load:
     mov ax, 0x2b
     ltr ax
     ret
-
-
-; ----------------------------------
-; Idle task in case nothing is to do
-dummy_task:
-    jmp dummy_task
