@@ -55,7 +55,6 @@ typedef struct virtio_net_dev
 // Device functions
 bool virtio_net_dev_init(virtio_net_dev_t *net_dev, virtio_dev_t *virtio_dev);
 void virtio_net_dev_send(virtio_net_dev_t *net_dev, u8 *packet, size_t packet_len);
-void virtio_net_dev_recv(virtio_net_dev_t *net_dev, u8 **packet);
 bool virtio_net_dev_mac(virtio_net_dev_t *net_dev, u8 *mac);
 
 // General functions

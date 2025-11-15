@@ -98,7 +98,6 @@ void kmain(struct multiboot_information *mb_info)
 
     virtio_dev_init(&virtio_dev_net, &pci_dev_net, 2);
     virtio_net_dev_init(net_dev, &virtio_dev_net);
-    
     virtio_net_init(net_dev);
 
     //kprintf("Int pin of virtio blk dev: %d\n", pci_intr_pin(&pci_dev_blk));
@@ -168,7 +167,7 @@ void kmain(struct multiboot_information *mb_info)
 
     kclear();
 
-#if 0
+#if 1
     u8 mac[6];
     virtio_net_dev_mac(net_dev, (u8*)&mac);
     kprintf("MAC: %h:%h:%h:%h:%h:%h \n", mac[0], mac[1], mac[2], 
@@ -181,29 +180,6 @@ void kmain(struct multiboot_information *mb_info)
 
     u8 sip[] = {10, 0, 2, 15};
     u8 dip[] = {10, 0, 2, 2};
-#endif
-
-#if 0
-    u8 *frame = arp_ipv4_craft_packet(mac, sip, dip);
-
-    virtio_net_dev_send(net_dev, (u8*)frame, sizeof(struct eth_head) + sizeof(struct arp_head));
-    frame = arp_ipv4_craft_packet(mac, sip, dip);
-    virtio_net_dev_send(net_dev, (u8*)frame, sizeof(struct eth_head) + sizeof(struct arp_head));
-
-    // Recv eth-arp packet
-    u8* read_frame = NULL;
-    virtio_net_dev_recv(net_dev, (u8**)&read_frame);
-    virtio_net_dev_recv(net_dev, (u8**)&read_frame);
-    // Print
-    kprintf("ETH-ARP: ");
-    for(size_t i = 0; i < sizeof(struct eth_head) + sizeof(struct arp_head); i++)
-    {
-        kprintf("%h ", read_frame[i]);
-    }
-    kprintf("\n");
-#endif
-
-#if 0
     u8 router_mac[] = {0x52, 0x54, 0x00, 0x12, 0x34, 0x56};
 
     u8 *frame = udp_ipv4_craft_packet(mac, router_mac, 
@@ -220,6 +196,22 @@ void kmain(struct multiboot_information *mb_info)
                         sizeof(struct udp_head) + 
                         sizeof("Hello, World!"));
     
+    // Receive packet
+
+    // TODO: Put this in one blocking method
+    void *pck = NULL;   
+    net_receive_udp_packet(0x0A00020F, 4444, &pck);
+    while(pck == (void*)-1)
+    {
+        // 0xf02000a = 10.0.2.15(ip), 0x5c11 = 4444(port)
+        net_receive_udp_packet(0xf02000a, 0x5c11, &pck);    
+    }
+
+    struct ipv4_head *ip_hdr = (struct ipv4_head*)((u8*)pck + sizeof(struct eth_head));
+    u8 *data = (u8*)((u8*)pck + sizeof(struct eth_head) + ((ip_hdr->ver_ihl & 0xF) * 4) + sizeof(struct udp_head));
+
+    kprintf("Ptr: %h, Data: %s\n", pck, data);
+
 #endif
 
 #if 0
@@ -263,6 +255,8 @@ void kmain(struct multiboot_information *mb_info)
     ioapic_mask(ioapic_entry->io_apic_mm_addr, pit_entry->dst_io_apic_intin, 1);
 #endif
 
+#if 0
+    // TODO: This disables interrupts and therfore breaks, e.g. networking -> fix it!
 
     // Prepare task
     struct tcb task;
@@ -283,6 +277,7 @@ void kmain(struct multiboot_information *mb_info)
 
     // Run task
     tcb_schedule(&task);
+#endif
 
     // Wait for interrupts
     while(1) 

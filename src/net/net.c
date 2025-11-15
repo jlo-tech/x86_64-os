@@ -7,6 +7,7 @@
 #include <vga.h>
 
 static struct kmap ip_to_mac;
+static struct klist packet_store;   // List that stores all available ipv4 packets
 
 void net_init()
 {
@@ -229,6 +230,15 @@ static bool mac_is_broadcast(u8 *mac)
     return true;
 }
 
+struct ipv4_packet* new_ipv4_packet()
+{
+    struct ipv4_packet *p = (struct ipv4_packet*)kmalloc(sizeof(struct ipv4_packet));
+    p->packet_pointer = NULL;
+    p->list_handle.valid = false;
+    p->list_handle.next = NULL;
+    return p;
+}
+
 extern virtio_net_dev_t *main_net_dev;
 
 // Respond to ARP packages
@@ -249,6 +259,70 @@ void net_handle_arp_packet(void *pkt)
         // Send response
         virtio_net_dev_send(main_net_dev, arp_res, sizeof(struct eth_head) + sizeof(struct arp_head));
     }
+
+    // Free packet (arp packets do not need to be stored)
+    kfree((i64)pkt);
+}
+
+void net_handle_ipv4_packet(void *pkt)
+{
+    // Places the packet in global list to make it able to be received by applications, we store the pointer to it outside of the virtqueue as the virtio queue entry will be overwritten
+
+    // TODO: Locking!!!!
+
+    struct ipv4_packet *packet = new_ipv4_packet();
+    packet->packet_pointer = pkt;
+    klist_push(&packet_store, &packet->list_handle);
+}
+
+u32 htoni(u32 val)
+{
+    return (((val >> 24) & 0xFF) << 0) | 
+           (((val >> 16) & 0xFF) << 8) |
+           (((val >> 8) & 0xFF) << 16) |
+           (((val >> 0) & 0xFF) << 24);
+}
+
+u16 htons(u16 val)
+{
+    return ((val & 0xFF) << 8) | (val >> 8);
+}
+
+/**
+ *  @return: Returns pointer to packet in pkt
+ */
+void net_receive_udp_packet(u32 addr, u16 port, void **pkt)
+{
+    // No packages to return
+    if(klist_empty(&packet_store)) {
+        *pkt = (void*)(-1);
+        return;
+    }
+    // Iterate over packet list
+    struct klist_node *curr = packet_store.root;
+    // Find packet with right address and port
+    do {
+        // Current ipv4 packet
+        struct ipv4_packet *pack = ENCLAVE(struct ipv4_packet, list_handle, curr);
+        // Parse packet
+        struct ipv4_head *ip_hdr = (struct ipv4_head*)((u8*)pack->packet_pointer + sizeof(struct eth_head));
+        struct udp_head *udp_hdr = (struct udp_head*)((u8*)pack->packet_pointer + sizeof(struct eth_head) + ((ip_hdr->ver_ihl & 0xF) * 4));   // Account for ip hdr length
+        // Check properties
+        if (ip_hdr->dst_addr == addr && udp_hdr->dst_port == port) {
+            // Return package
+            *pkt = pack->packet_pointer;
+            // Remove from packet store
+            klist_pop(&packet_store, &pack->list_handle);
+            kfree((i64)pack);
+            // Finished
+            return;
+        }
+        // Next packet
+        curr = curr->next;
+    } while(curr->valid);
+
+    *pkt = (void*)(-1);
+    return;
 }
 
 void net_handle_packet(void *pkt_ptr)
@@ -266,6 +340,7 @@ void net_handle_packet(void *pkt_ptr)
         case 0x0008: // IPv4
             // TODO: Remove
             kprintf("Got IP\n");
+            net_handle_ipv4_packet(pkt_ptr);
             break;
 
         default:

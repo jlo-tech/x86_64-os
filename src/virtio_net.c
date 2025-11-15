@@ -142,6 +142,7 @@ void virtio_net_dev_send_cleanup(virtio_net_dev_t *net_dev)
 
      u16 used_idx = net_dev->virtio_dev->virtqs[1].used->idx;
 
+     // TODO: Maybe we run in trouble here due to some overflows
      for(i64 i = last_used_idx; i < used_idx; i++)
      {
           struct virtq_desc *local_desc;
@@ -161,12 +162,6 @@ void virtio_net_dev_send_cleanup(virtio_net_dev_t *net_dev)
      }
 
      last_used_idx = used_idx;
-}
-
-// Queries packet from system wide queue
-void virtio_net_dev_recv(virtio_net_dev_t *net_dev, u8 **packet)
-{
-     // TODO
 }
 
 // Places new buffers in the recv queue, 
