@@ -198,19 +198,10 @@ void kmain(struct multiboot_information *mb_info)
     
     // Receive packet
 
-    // TODO: Put this in one blocking method
-    void *pck = NULL;   
-    net_receive_udp_packet(0x0A00020F, 4444, &pck);
-    while(pck == (void*)-1)
-    {
-        // 0xf02000a = 10.0.2.15(ip), 0x5c11 = 4444(port)
-        net_receive_udp_packet(0xf02000a, 0x5c11, &pck);    
-    }
+    // 10.0.2.15 (IP), 4444 (PORT)
+    struct udp_data udp_data = net_receive_udp_packet_blocking(htoni(0x0A00020F), htons(4444));
 
-    struct ipv4_head *ip_hdr = (struct ipv4_head*)((u8*)pck + sizeof(struct eth_head));
-    u8 *data = (u8*)((u8*)pck + sizeof(struct eth_head) + ((ip_hdr->ver_ihl & 0xF) * 4) + sizeof(struct udp_head));
-
-    kprintf("Ptr: %h, Data: %s\n", pck, data);
+    kprintf("Ptr: %h, Data: %s\n", udp_data.packet_pointer, udp_data.data_pointer);
 
 #endif
 

@@ -325,6 +325,29 @@ void net_receive_udp_packet(u32 addr, u16 port, void **pkt)
     return;
 }
 
+// TODO: OPTIMIZE (currently this is a busy wait)
+struct udp_data net_receive_udp_packet_blocking(int addr, int port)
+{
+    // Wait for a packet to arrive
+    void *p = NULL;   
+    net_receive_udp_packet(addr, port, &p);
+    while(p == (void*)-1)
+    {
+        net_receive_udp_packet(addr, port, &p);    
+    }
+
+    // Parse packet and get pointer to data
+    struct ipv4_head *ip_hdr = (struct ipv4_head*)((u8*)p + sizeof(struct eth_head));
+    u8 *data = (u8*)((u8*)p + sizeof(struct eth_head) + ((ip_hdr->ver_ihl & 0xF) * 4) + sizeof(struct udp_head));
+
+    // Build return value
+    struct udp_data ret;
+    ret.packet_pointer = p;
+    ret.data_pointer = data;
+
+    return ret;
+}
+
 void net_handle_packet(void *pkt_ptr)
 {
     struct eth_head *eth_hdr = (struct eth_head*)pkt_ptr;

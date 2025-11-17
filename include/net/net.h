@@ -56,6 +56,13 @@ struct ipv4_packet
     struct klist_node list_handle;  // Handle for linked packet list
 };
 
+// Structure to store pointer to udp data 
+// (We also need to store a pointer to the packet to be able to free it later)
+struct udp_data {
+    void *packet_pointer;
+    void *data_pointer;
+};
+
 struct ipv4_packet* new_ipv4_packet();
 
 // Host to network order 32bit
@@ -77,3 +84,5 @@ void net_mapping(u8 *ipv4_addr, u8 *mac_addr);
 void net_handle_packet(void *pkt_ptr);
 
 void net_receive_udp_packet(u32 addr, u16 port, void **pkt);
+
+struct udp_data net_receive_udp_packet_blocking(int addr, int port);
