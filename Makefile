@@ -48,7 +48,7 @@ debug: iso
 	@$(QEMU) \
 	-s -S -cdrom os.iso -smp 4,sockets=4,cores=1,threads=1 \
 	-m 8G -drive id=disk,file=disk.img,format=raw,if=none \
-	-device virtio-blk-pci,drive=disk -no-reboot -no-shutdown -d int,cpu_reset \
+	-device virtio-blk-pci,drive=disk -no-reboot -no-shutdown -monitor stdio \
 	-netdev user,id=n1 -device virtio-net-pci,netdev=n1 \
 	-object filter-dump,id=f1,netdev=n1,file=debug.pcap
 

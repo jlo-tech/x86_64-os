@@ -162,6 +162,8 @@ bool virtio_deploy(virtio_dev_t *virtio_dev, u16 queue_num, struct virtq_desc *d
     // Update dptr
     vq->dptr = (vq->dptr + num_descriptors) % vq->elems;
 
+    BARRIER
+
     // Get virtio device's io offset
     u32 iobase = pci_bar(virtio_dev->pci_dev, 0);
     

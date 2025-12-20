@@ -37,6 +37,11 @@ char __attribute__((aligned(4096))) user_stack[4096];
 
 void kmain(struct multiboot_information *mb_info)
 {
+    /***
+        CAUTION: This method makes use of stack variables that are used much longer then the lifetime of this function.
+                 Therefore, we make use of a separate kernel stack, once we enter user mode and thus preserve the local vars.
+    */
+
     // Setup identity page mapping
     paging_id_full();
 
@@ -225,7 +230,7 @@ void kmain(struct multiboot_information *mb_info)
     kprintf("%s\n", data);
 #endif
 
-#if 0    
+#if 0
     lapic_t la = lapic_init(0xF1, 0xF2, 0xF3, 0xF4);
 
     lapic_timer_init(la, 0xF2, true, 1000000, 6);
@@ -246,9 +251,7 @@ void kmain(struct multiboot_information *mb_info)
     ioapic_mask(ioapic_entry->io_apic_mm_addr, pit_entry->dst_io_apic_intin, 1);
 #endif
 
-#if 0
-    // TODO: This disables interrupts and therfore breaks, e.g. networking -> fix it!
-
+#if 1
     // Prepare task
     struct tcb task;
     tcb_init(&task);

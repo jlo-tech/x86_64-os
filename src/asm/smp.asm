@@ -49,7 +49,7 @@ align 16
     dw 0xFFFF ; limit
     dw 0x0    ; base
     db 0x0    ; base
-    db 0x92   ; present + erite/read
+    db 0x92   ; present + write/read
     db 0x4F   ; lots of stuff
     db 0x0    ; base
 

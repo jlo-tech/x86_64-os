@@ -6,7 +6,7 @@
 #include <vga.h>
 #include <types.h>
 
-#define BARRIER asm("mfence");
+#define BARRIER asm volatile("mfence");
 
 /*
  * Offsets in Virtio config space

@@ -8,6 +8,7 @@ global page_id_ptr
 global page_id_dir
 global page_id_tab
 global kernel_stack
+global kernel_stack_int
 
 section .multiboot_header
 
@@ -171,8 +172,12 @@ section .bss
 
 ; stack space
 align 4096
+
 resb (16384 * 2)
 kernel_stack:
+
+resb (16384 * 2)
+kernel_stack_int:
 
 ; identity mapping for whole virtual address space
 page_id_ptr:

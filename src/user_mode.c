@@ -2,10 +2,10 @@
 
 struct task_state_segment tss;
 
-extern void kernel_stack;
+extern void kernel_stack_int;
 extern void global_descriptor_table_pointer;
 extern void global_descriptor_table;
-extern void tss_load();
+extern void tss_load(u8 selector);
 
 void tss_init()
 {
@@ -13,7 +13,7 @@ void tss_init()
     bzero((u8*)&tss, sizeof(struct task_state_segment));
 
     // Set values of tss
-    tss.rsp0 = (u64)&kernel_stack;
+    tss.rsp0 = (u64)&kernel_stack_int;
     tss.iopb = sizeof(struct task_state_segment);       // No IOPB (since tss limit == IOPB)
 
     // Modify gdt's tss entry

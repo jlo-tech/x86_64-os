@@ -372,11 +372,11 @@ void pic_disable()
 */
 struct global_context* intr_handler(struct global_context* saved_context)
 {
-    //kprintf("Interrupt [%d]\n", code);
+    //kprintf("Interrupt [%d]\n", saved_context->info);
 
-    // Handle PIT (timer) interrupt and make pit_delay() work
     if(saved_context->info == INTR_NUM_PIT)
     {
+        // Handle PIT (timer) interrupt and make pit_delay() work
         pit_handle_intr();
         lapic_end_of_int(lapic_fetch());
     }
@@ -385,7 +385,6 @@ struct global_context* intr_handler(struct global_context* saved_context)
     {
         // Call virtio net irq handler
         virtio_net_irq_handler();
-
         lapic_end_of_int(lapic_fetch());
     }
 

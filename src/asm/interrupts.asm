@@ -65,7 +65,7 @@ switch_context:
 ; schedule_task(struct tcb *task)
 schedule_task:
     ; load page table
-    mov rax, [rdi+(8+15*8+5*8)] ; add sizeof(cpu_ctx) + sizeof(int_ctx) to load vmm_ctx
+    mov rax, [rdi+168] ; add sizeof(tid) + sizeof(cpu_ctx) + sizeof(int_ctx) to load vmm_ctx
     mov cr3, rax
 
     ; load registers from cpu_ctx
