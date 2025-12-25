@@ -2,6 +2,7 @@
 #include <pit.h>
 #include <apic.h>
 #include <intr.h>
+#include <tasks.h>
 
 #include <virtio_net.h>
 
@@ -366,6 +367,8 @@ void pic_disable()
     pic_set_mask(0xFFFF);
 }
 
+struct scheduler rrsched;
+
 /*
  * context: saved cpu context
  * code: number of interrupt/exception
@@ -374,10 +377,13 @@ struct global_context* intr_handler(struct global_context* saved_context)
 {
     //kprintf("Interrupt [%d]\n", saved_context->info);
 
+    struct tcb *new_task = (void*)-1;
     if(saved_context->info == INTR_NUM_PIT)
     {
         // Handle PIT (timer) interrupt and make pit_delay() work
-        pit_handle_intr();
+        u64 time = pit_handle_intr();
+        if((time % 100) == 0)
+            new_task = scheduler_schedule(&rrsched, saved_context);
         lapic_end_of_int(lapic_fetch());
     }
 
@@ -400,5 +406,8 @@ struct global_context* intr_handler(struct global_context* saved_context)
     }
     */
 
-    return saved_context;
+    if(new_task != (void*)-1)
+        return &new_task->regintr_ctx;
+    else
+        return saved_context;
 }

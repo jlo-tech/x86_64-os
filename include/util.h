@@ -26,6 +26,7 @@ struct ktree_node
 void bzero(u8 *mem, u64 size);
 void memcpy(void *dst, void *src, size_t sz);
 bool memcmp(u8 *m0, u8 *m1, size_t n);
+void memset(u8 *m, u8 val, size_t n);
 size_t strlen(char *str);
 size_t min(size_t a, size_t b);
 size_t max(size_t a, size_t b);

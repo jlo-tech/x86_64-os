@@ -10,8 +10,7 @@ struct tcb
 {
     u64 tid;
 
-    struct cpu_context cpu_ctx;
-    struct interrupt_context int_ctx;
+    struct global_context regintr_ctx;
     struct page_table *vmm_ctx;
 
     mutex_t lock;
@@ -24,10 +23,15 @@ void tcb_init(struct tcb *tcb);
 void tcb_schedule(struct tcb *task);
 
 // Scheduler struct
-struct sched 
+struct scheduler
 {
     mutex_t lock;
-    struct klist_node *task_list;
+    bool initialized;
+    struct tcb *curr_task;
+    struct klist task_list;
 };
 
-// TODO: Implement scheduler
+void scheduler_init(struct scheduler *sched);
+void scheduler_add_task(struct scheduler *sched, struct tcb *tcb);
+void scheduler_kickstart(struct scheduler *sched, struct tcb *task);
+struct tcb* scheduler_schedule(struct scheduler *sched, struct global_context *saved_ctx);

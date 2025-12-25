@@ -31,9 +31,11 @@ const u64 kernel_base_addr  = (u64)&kernel_base;
 const u64 kernel_limit_addr = (u64)&kernel_limit;
 
 // Tasking related
-extern void user_func();
+extern void user_func0();
+extern void user_func1();
 extern struct page_table page_id_ptr;
 char __attribute__((aligned(4096))) user_stack[4096];
+extern struct scheduler rrsched;
 
 void kmain(struct multiboot_information *mb_info)
 {
@@ -252,25 +254,35 @@ void kmain(struct multiboot_information *mb_info)
 #endif
 
 #if 1
-    // Prepare task
-    struct tcb task;
-    tcb_init(&task);
+    scheduler_init(&rrsched);
 
-    task.tid = 0;
-    
-    bzero((u8*)&task.cpu_ctx, sizeof(struct cpu_context)); // zero out all regs
-    task.cpu_ctx.rbp = (u64)(user_stack+2048);
+    // Prepare task0
+    struct tcb *task0 = (struct tcb*)kmalloc(sizeof(struct tcb));
+    tcb_init(task0);
+    task0->tid = 0;
+    task0->regintr_ctx.cpu_context.rbp = (u64)(user_stack+2048);
+    task0->regintr_ctx.intr_context.rip = (u64)user_func0;
+    task0->regintr_ctx.intr_context.cs = (4 << 3) | 3;
+    task0->regintr_ctx.intr_context.rflags = 0x202;
+    task0->regintr_ctx.intr_context.rsp = (u64)(user_stack+2048);
+    task0->regintr_ctx.intr_context.ss = (3 << 3) | 3;
+    task0->vmm_ctx = &page_id_ptr;
+    // Add task
+    scheduler_add_task(&rrsched, task0);
 
-    task.int_ctx.rip = (u64)user_func;
-    task.int_ctx.cs = (4 << 3) | 3;
-    task.int_ctx.rflags = 0x202;
-    task.int_ctx.rsp = (u64)(user_stack+2048);
-    task.int_ctx.ss = (3 << 3) | 3;
-
-    task.vmm_ctx = &page_id_ptr;
-
+    // Prepare task1
+    struct tcb *task1 = (struct tcb*)kmalloc(sizeof(struct tcb));
+    tcb_init(task1);
+    task1->tid = 1;
+    task1->regintr_ctx.cpu_context.rbp = (u64)(user_stack+2048);
+    task1->regintr_ctx.intr_context.rip = (u64)user_func1;
+    task1->regintr_ctx.intr_context.cs = (4 << 3) | 3;
+    task1->regintr_ctx.intr_context.rflags = 0x202;
+    task1->regintr_ctx.intr_context.rsp = (u64)(user_stack+2048);
+    task1->regintr_ctx.intr_context.ss = (3 << 3) | 3;
+    task1->vmm_ctx = &page_id_ptr;
     // Run task
-    tcb_schedule(&task);
+    scheduler_kickstart(&rrsched, task1);
 #endif
 
     // Wait for interrupts

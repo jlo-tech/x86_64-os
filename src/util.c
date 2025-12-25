@@ -32,6 +32,12 @@ bool memcmp(u8 *m0, u8 *m1, size_t n)
     return true; 
 }
 
+void memset(u8 *m, u8 val, size_t n)
+{
+    for(size_t i = 0; i < n; i++)
+        m[i] = val;
+}
+
 size_t strlen(char *str)
 {
     size_t c = 0;

@@ -10,7 +10,7 @@ void pit_freq(u16 freq)
     outb(PIT_CHN, freq >> 8);
 }
 
-void pit_handle_intr()
+u64 pit_handle_intr()
 {
-    pit_counter++;
+    return pit_counter++;
 }

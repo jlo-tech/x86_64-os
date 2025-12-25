@@ -40,15 +40,24 @@ syscall_handler:
 
 ; for testing purpose only
 
-global user_func
+global user_func0
+global user_func1
 
-user_func:
+user_func0:
     mov rdi, 0
-    mov rsi, ttp
+    mov rsi, ttp0
+    syscall
+.loop:
+    jmp .loop
+
+user_func1:
+    mov rdi, 0
+    mov rsi, ttp1
     syscall
 .loop:
     jmp .loop
 
 
 section .data
-ttp: db "Hello, Kernel!", 0
+ttp0: db "Hello, from Task 0!", 0
+ttp1: db "Hello, from Task 1!", 0

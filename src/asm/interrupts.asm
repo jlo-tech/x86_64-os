@@ -65,13 +65,16 @@ switch_context:
 ; schedule_task(struct tcb *task)
 schedule_task:
     ; load page table
-    mov rax, [rdi+168] ; add sizeof(tid) + sizeof(cpu_ctx) + sizeof(int_ctx) to load vmm_ctx
+    mov rax, [rdi+176] ; add sizeof(tid) + sizeof(global_context) to load vmm_ctx
     mov cr3, rax
 
     ; load registers from cpu_ctx
     lea rsp, [rdi+8]
     restore_context
-    
+
+    ; remove info code
+    add rsp, 8
+
     ; poping off registers leaves us int_ctx on stack
 
     ; do actual context switch
