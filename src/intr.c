@@ -394,17 +394,15 @@ struct global_context* intr_handler(struct global_context* saved_context)
         lapic_end_of_int(lapic_fetch());
     }
 
-    /*
-    if(code == 0x21)
+    if(saved_context->info == INTR_NUM_KBD)
     {
-        keyboard_handle_keypress();
+        // TODO: Remove
+        kprintf("Key press!\n");
 
-        u8 buf[128] = {0};
-        keyboard_data(buf, 4);
-        
-        pic_eoi(1);
+        // Handle key presses
+        keyboard_handle_keypress();
+        lapic_end_of_int(lapic_fetch());
     }
-    */
 
     if(new_task != (void*)-1)
         return &new_task->regintr_ctx;

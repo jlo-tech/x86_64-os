@@ -94,5 +94,6 @@ void pic_disable();
 // Interrupt number assignments 
 #define INTR_NUM_PIT        0xFF
 #define INTR_NUM_VIRT_NET   0xFE
+#define INTR_NUM_KBD        0xFD
 
 struct global_context* intr_handler(struct global_context* saved_task);

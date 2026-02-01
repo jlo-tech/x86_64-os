@@ -129,6 +129,9 @@ bool mp_ct_extended_entries(struct mp_ct_hdr *hdr, void **res);
 // Find PIT mapping
 struct mp_ct_io_interrupt_entry* mp_ct_find_pit(struct mp_ct_hdr *hdr);
 
+// Find keyboard mapping
+struct mp_ct_io_interrupt_entry* mp_ct_find_kbd(struct mp_ct_hdr *hdr);
+
 // Find IOAPIC
 struct mp_ct_io_apic_entry* mp_ct_find_ioapic(struct mp_ct_hdr *hdr);
 

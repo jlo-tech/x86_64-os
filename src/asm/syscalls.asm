@@ -1,8 +1,10 @@
 %include "src/asm/macros.asm"
 
 global syscall_handler
+global return_to_task_from_syscall
 
 extern do_syscall
+extern schedule_task
 
 section .text
 
@@ -35,6 +37,14 @@ syscall_handler:
     ; Return to user mode
     o64 sysret
 
+; This function returns control back to another task then the one who made the syscall
+; NOTE: Requires that scheduler_update_current_cpu_context() was called before
+; void return_to_task_from_syscall(struct tcb*)
+return_to_task_from_syscall:
+    ; reset gs register
+    swapgs
+    ; run actual task
+    jmp schedule_task
 
 ; ------------------------------------
 
@@ -51,6 +61,10 @@ user_func0:
     jmp .loop
 
 user_func1:
+    mov rdi, 1
+    mov rsi, ttp1
+    mov rdx, 2
+    syscall
     mov rdi, 0
     mov rsi, ttp1
     syscall

@@ -1,5 +1,5 @@
 global tss_load
-global dummy_task
+global idle_task_func
 
 section .text
 
@@ -10,3 +10,8 @@ tss_load:
     mov ax, di
     ltr ax
     ret
+
+; This is the idle task (needed by the scheduler)
+idle_task_func:
+    ;hlt
+    jmp idle_task_func

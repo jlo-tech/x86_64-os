@@ -1,7 +1,10 @@
+#include <tasks.h>
 #include <keyboard.h>
 
 #define KBD_CMD  0x64
 #define KBD_DATA 0x60 
+
+extern struct scheduler rrsched;
 
 static bool keyboard_data_available()
 {
@@ -15,7 +18,7 @@ static u8 keyboard_poll()
 
 unsigned char kbmap[128] =
 {
-    0,  27, 
+    0,  '`', 
     '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 
     '-', '=', 
     '\b', /* Backspace */
@@ -58,10 +61,50 @@ unsigned char kbmap[128] =
     0,	/* All other keys are undefined */
 };
 
-static u8 keyboard_translate_scancode(u8 scancode)
+unsigned char kbmap_shift[128] =
 {
-    return kbmap[scancode];
-}
+    0,  '~', 
+    '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', 
+    '_', '+', 
+    '\b', /* Backspace */
+    '\t', /* Tab */
+    'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 
+    '{', '}', 
+    '\n', /* Enter key */
+    0,	  /* Control */
+    'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':',
+    '\"', '`', 0,	/* Left shift */
+    '|', 
+    'Z', 'X', 'C', 'V', 'B', 'N',
+    'm', '<', '>', '?',   
+    0,				/* Right shift */
+    '*',
+    0,	 /* Alt */
+    ' ', /* Space bar */
+    0,	 /* Caps lock */
+    0,	 /* F1 key ... > */
+    0,   0,   0,   0,   0,   0,   0,   0,
+    0,	/* < ... F10 */
+    0,	/* Num lock*/
+    0,	/* Scroll Lock */
+    0,	/* Home key */
+    0,	/* Up Arrow */
+    0,	/* Page Up */
+    '-',
+    0,	/* Left Arrow */
+    0,
+    0,	/* Right Arrow */
+    '+',
+    0,	/* End key*/
+    0,	/* Down Arrow */
+    0,	/* Page Down */
+    0,	/* Insert Key */
+    0,	/* Delete Key */
+    0,   0,   0,
+    0,	/* F11 Key */
+    0,	/* F12 Key */
+    0,	/* All other keys are undefined */
+};
 
 /* Implement ring buffer */
 #define RBUF_SIZE 256
@@ -83,6 +126,14 @@ static i64 keyboard_count()
 {
     i64 r = read_ptr - write_ptr;
     return (r < 0) ? -r : r;
+}
+
+static u8 keyboard_translate_scancode(u8 scancode)
+{
+    if(!shift_pressed)
+        return kbmap[scancode];
+    else
+        return kbmap_shift[scancode];
 }
 
 void keyboard_handle_keypress()
@@ -150,6 +201,11 @@ void keyboard_handle_keypress()
 
             // Handle normal chars
             default:
+                // Wakeup tasks when enter is pressed
+                if(scancode == 0x1C) {
+                    // Wakeup tasks waiting for keypress
+                    scheduler_wakeup(&rrsched, WAITING_FOR_KEYPRESS);
+                }
                 u8 ch = keyboard_translate_scancode(scancode);
                 ring_buffer[write_ptr++ % RBUF_SIZE] = ch;
                 break;
@@ -172,12 +228,28 @@ bool keyboard_ctrl()
     return ctrl_pressed;
 }
 
-void keyboard_data(u8 *buf, i64 max_size)
+// Is there still an enter keypress in the buffer?
+bool keyboard_enter()
 {
-    u64 read_size = (max_size < keyboard_count()) ? max_size : keyboard_count();
+    for(i64 i = read_ptr; i < read_ptr + keyboard_count(); i++)
+    {
+        if(ring_buffer[i % RBUF_SIZE] == '\n')
+            return true;
+    }
+    return false;
+}
+
+i64 keyboard_data(u8 *buf, i64 max_size)
+{
+    i64 read_size = (max_size < keyboard_count()) ? max_size : keyboard_count();
 
     for(i64 i = read_size; i > 0; i--)
     {
-        *buf++ = ring_buffer[read_ptr++ % RBUF_SIZE];
+        *buf = ring_buffer[read_ptr++ % RBUF_SIZE];
+        if(*buf == '\n')
+            return i;
+        buf++;
     }
+
+    return read_size;
 }

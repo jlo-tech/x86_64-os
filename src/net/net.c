@@ -325,7 +325,7 @@ void net_receive_udp_packet(u32 addr, u16 port, void **pkt)
     return;
 }
 
-// TODO: OPTIMIZE (currently this is a busy wait)
+// NOTE: This function does a busy wait
 struct udp_data net_receive_udp_packet_blocking(int addr, int port)
 {
     // Wait for a packet to arrive

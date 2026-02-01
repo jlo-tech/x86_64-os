@@ -13,6 +13,8 @@
 /*
  * Struct used to refer to kernel stack on syscall 
  * from user mode and to save important user data
+ * 
+ * NOTE: This is per-CPU data! (We currently do not account for this!)
  */
 struct kernel_root
 {

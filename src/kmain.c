@@ -31,6 +31,7 @@ const u64 kernel_base_addr  = (u64)&kernel_base;
 const u64 kernel_limit_addr = (u64)&kernel_limit;
 
 // Tasking related
+extern void idle_task_func();
 extern void user_func0();
 extern void user_func1();
 extern struct page_table page_id_ptr;
@@ -127,22 +128,21 @@ void kmain(struct multiboot_information *mb_info)
 #endif
 
     struct mp_ct_io_interrupt_entry *pit_entry = mp_ct_find_pit(hdr);
-
+    struct mp_ct_io_interrupt_entry *kbd_entry = mp_ct_find_kbd(hdr);
     struct mp_ct_io_apic_entry *ioapic_entry = mp_ct_find_ioapic(hdr);
-    //kprintf("IOAPIC base: %h\n", ioapic_entry->io_apic_mm_addr);
+    // NOTE: We map device 4 here (net) but device 3 (block) maps to the same IOAPIC entry
+    //       therefore we map the whole virtio device space for now
+    struct mp_ct_io_interrupt_entry *ectio = mp_ct_find_virtio(hdr, 4);
 
     // Redirect PIT interrupt
     u64 redirection_entry = INTR_NUM_PIT;
     redirection_entry |= (u64)ioapic_entry->io_apic_id << 56;
     ioapic_redirect(ioapic_entry->io_apic_mm_addr, pit_entry->dst_io_apic_intin, redirection_entry);
 
-
-    // Print info needed for redirection entry to react to virtio interrupt
-    struct mp_ct_io_interrupt_entry *ectio = mp_ct_find_virtio(hdr, 4);
-    kprintf("Virtio redirection entry: %h\n", ectio->dst_io_apic_intin);
-
-    // NOTE: We map device 4 here (net) but device 3 (block) maps to the same IOAPIC entry
-    //       therefore we map the whole virtio device space for now
+    // Redirect keyboard interrupt
+    u64 redirection_entry_kbd = INTR_NUM_KBD;
+    redirection_entry_kbd |= (u64)ioapic_entry->io_apic_id << 56;
+    ioapic_redirect(ioapic_entry->io_apic_mm_addr, kbd_entry->dst_io_apic_intin, redirection_entry_kbd);
 
     // Redirect virtio int net handler
     u64 virtio_redirection_entry = INTR_NUM_VIRT_NET;
@@ -174,7 +174,6 @@ void kmain(struct multiboot_information *mb_info)
 
     kclear();
 
-#if 1
     u8 mac[6];
     virtio_net_dev_mac(net_dev, (u8*)&mac);
     kprintf("MAC: %h:%h:%h:%h:%h:%h \n", mac[0], mac[1], mac[2], 
@@ -185,6 +184,7 @@ void kmain(struct multiboot_information *mb_info)
     net_init();
     net_mapping(ip, mac);
 
+#if 0
     u8 sip[] = {10, 0, 2, 15};
     u8 dip[] = {10, 0, 2, 2};
     u8 router_mac[] = {0x52, 0x54, 0x00, 0x12, 0x34, 0x56};
@@ -253,13 +253,31 @@ void kmain(struct multiboot_information *mb_info)
     ioapic_mask(ioapic_entry->io_apic_mm_addr, pit_entry->dst_io_apic_intin, 1);
 #endif
 
-#if 1
     scheduler_init(&rrsched);
+
+    // NOTE: Must run in privileged mode, cause "hlt" is a priv inst
+    struct tcb *idle_task = (struct tcb*)kmalloc(sizeof(struct tcb));
+#if 1
+    tcb_init(idle_task);
+    idle_task->tid = 0;
+    idle_task->state = RUNNABLE;
+    idle_task->regintr_ctx.cpu_context.rbp = 0;
+    idle_task->regintr_ctx.intr_context.rip = (u64)idle_task_func;
+    idle_task->regintr_ctx.intr_context.cs = (4 << 3) | 3;
+    idle_task->regintr_ctx.intr_context.rflags = 0x202;
+    idle_task->regintr_ctx.intr_context.rsp = 0;
+    idle_task->regintr_ctx.intr_context.ss = (3 << 3) | 3;
+    idle_task->vmm_ctx = &page_id_ptr;
+    // Add idle task (very important for the scheduler)
+    scheduler_add_task(&rrsched, idle_task);
+#endif
 
     // Prepare task0
     struct tcb *task0 = (struct tcb*)kmalloc(sizeof(struct tcb));
+#if 1
     tcb_init(task0);
-    task0->tid = 0;
+    task0->tid = 1;
+    task0->state = RUNNABLE;
     task0->regintr_ctx.cpu_context.rbp = (u64)(user_stack+2048);
     task0->regintr_ctx.intr_context.rip = (u64)user_func0;
     task0->regintr_ctx.intr_context.cs = (4 << 3) | 3;
@@ -269,11 +287,14 @@ void kmain(struct multiboot_information *mb_info)
     task0->vmm_ctx = &page_id_ptr;
     // Add task
     scheduler_add_task(&rrsched, task0);
+#endif
 
     // Prepare task1
     struct tcb *task1 = (struct tcb*)kmalloc(sizeof(struct tcb));
+#if 1
     tcb_init(task1);
-    task1->tid = 1;
+    task1->tid = 2;
+    task1->state = RUNNABLE;
     task1->regintr_ctx.cpu_context.rbp = (u64)(user_stack+2048);
     task1->regintr_ctx.intr_context.rip = (u64)user_func1;
     task1->regintr_ctx.intr_context.cs = (4 << 3) | 3;
@@ -284,6 +305,11 @@ void kmain(struct multiboot_information *mb_info)
     // Run task
     scheduler_kickstart(&rrsched, task1);
 #endif
+
+    // ---------------
+    // TODO: FIX: Crash by making idle_task run in ring 0 
+    //    -> keep tss in mind
+    // ---------------
 
     // Wait for interrupts
     while(1) 

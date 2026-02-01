@@ -213,7 +213,56 @@ struct mp_ct_io_interrupt_entry* mp_ct_find_pit(struct mp_ct_hdr *hdr)
             // Check for right intr type, bus and irq
             if(*(e_type+1) == 0 && *(e_type+4) == bus_id && *(e_type+5) == 0)
             {
-                // kprintf("IOAPIC: %d, PIN: %d\n", *(e_type+6), *(e_type+7));
+                entry_id = i;
+                addr = (struct mp_ct_io_interrupt_entry*)entries[entry_id];
+                break;
+            }
+        }
+    }
+
+    kfree((i64)entries);
+
+    return addr;
+}
+
+// Search for keyboard entry 
+struct mp_ct_io_interrupt_entry* mp_ct_find_kbd(struct mp_ct_hdr *hdr)
+{
+    void **entries = (void**)kmalloc(hdr->entry_count * sizeof(void*)); 
+
+    // Get all entries in the MP base table
+    mp_ct_entries(hdr, entries);
+
+    u8 bus_id = 0;
+    size_t entry_id = 0;
+    struct mp_ct_io_interrupt_entry *addr;
+
+    // Search right bus entry
+    for(int i = 0; i < hdr->entry_count; i++)
+    {
+        u8 *e_type = (u8*)entries[i];
+        if(*e_type ==  1)
+        {
+            u8 *e_bus_id = (e_type+1);
+            u8 *e_bus_type_string = e_type + 2;
+            // Search for  bus
+            if(memcmp(e_bus_type_string, (u8*)"ISA", 3) == true)
+            {
+                bus_id = *e_bus_id;
+                break;  
+            }
+        }
+    }
+
+    // Search for right interrupt entry
+    for(int i = 0; i < hdr->entry_count; i++)
+    {
+        u8 *e_type = (u8*)entries[i];
+        if(*e_type == 3)
+        {
+            // Check for right intr type, bus and irq
+            if(*(e_type+1) == 0 && *(e_type+4) == bus_id && *(e_type+5) == 1)
+            {
                 entry_id = i;
                 addr = (struct mp_ct_io_interrupt_entry*)entries[entry_id];
                 break;
