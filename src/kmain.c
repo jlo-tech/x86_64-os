@@ -255,7 +255,7 @@ void kmain(struct multiboot_information *mb_info)
 
     scheduler_init(&rrsched);
 
-    // NOTE: Must run in privileged mode, cause "hlt" is a priv inst
+    // TODO: NOTE: Must run in privileged mode if "hlt" instruction should be used, cause "hlt" is a privileged instruction
     struct tcb *idle_task = (struct tcb*)kmalloc(sizeof(struct tcb));
 #if 1
     tcb_init(idle_task);
@@ -307,8 +307,7 @@ void kmain(struct multiboot_information *mb_info)
 #endif
 
     // ---------------
-    // TODO: FIX: Crash by making idle_task run in ring 0 
-    //    -> keep tss in mind
+    // TODO: FIX: Crash caused by "hlt" instruction by making idle_task run in ring 0 (aka implement kernel tasks)
     // ---------------
 
     // Wait for interrupts
