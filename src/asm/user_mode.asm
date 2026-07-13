@@ -13,5 +13,5 @@ tss_load:
 
 ; This is the idle task (needed by the scheduler)
 idle_task_func:
-    ;hlt
+    hlt 
     jmp idle_task_func

@@ -377,14 +377,20 @@ struct global_context* intr_handler(struct global_context* saved_context)
 {
     //kprintf("Interrupt [%d]\n", saved_context->info);
 
+    // Save current task state
+    struct tcb* curr_task = scheduler_get_current_task(&rrsched);
+    memcpy(&curr_task->regintr_ctx, saved_context, sizeof(struct global_context));
+
     struct tcb *new_task = (void*)-1;
     if(saved_context->info == INTR_NUM_PIT)
     {
         // Handle PIT (timer) interrupt and make pit_delay() work
         u64 time = pit_handle_intr();
+        lapic_end_of_int(lapic_fetch());
         if((time % 100) == 0)
             new_task = scheduler_schedule(&rrsched, saved_context);
-        lapic_end_of_int(lapic_fetch());
+        if(new_task != (void*)-1)
+            tcb_schedule(new_task);
     }
 
     if(saved_context->info == INTR_NUM_VIRT_NET)
@@ -404,8 +410,5 @@ struct global_context* intr_handler(struct global_context* saved_context)
         lapic_end_of_int(lapic_fetch());
     }
 
-    if(new_task != (void*)-1)
-        return &new_task->regintr_ctx;
-    else
-        return saved_context;
+    tcb_schedule(curr_task);
 }

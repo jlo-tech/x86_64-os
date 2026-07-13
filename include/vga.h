@@ -22,7 +22,7 @@ struct framebuffer
     u16 pos;
 };
 
-void vga_clear();
+void vga_clear(struct framebuffer *fb);
 void vga_print_char(struct framebuffer *fb, char c);
 void vga_print_str(struct framebuffer *fb, char *s);
 void vga_print_uint(struct framebuffer *fb, u64 n);

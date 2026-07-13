@@ -27,7 +27,7 @@ src/asm/%.o: src/asm/%.asm
 kernel: $(OBJC) $(OBJA) $(OBJFS) $(OBJNET)
 	@$(LD) -n -o kernel.bin -T linker.ld src/asm/*.o src/*.o src/fs/*.o src/net/*.o
 
-iso: kernel
+os.iso: kernel
 	@cp kernel.bin iso/boot/
 ifdef GMK
 	@grub-mkrescue -o os.iso iso
@@ -35,16 +35,16 @@ else
 	@grub2-mkrescue -o os.iso iso
 endif
 
-run: iso
+run:
 	# Multiple sockets to make qemu generate MP tables
 	@$(QEMU) \
 	-cdrom os.iso -smp 4,sockets=4,cores=1,threads=1 \
 	-m 8G -drive id=disk,file=disk.img,format=raw,if=none \
 	-device virtio-blk-pci,drive=disk -d int,cpu_reset \
 	-netdev user,id=n1 -device virtio-net-pci,netdev=n1 \
-	-object filter-dump,id=f1,netdev=n1,file=debug.pcap
+	-object filter-dump,id=f1,netdev=n1,file=debug.pcap -no-reboot
 
-debug: iso
+debug:
 	@$(QEMU) \
 	-s -S -cdrom os.iso -smp 4,sockets=4,cores=1,threads=1 \
 	-m 8G -drive id=disk,file=disk.img,format=raw,if=none \
@@ -63,3 +63,5 @@ clean:
 	@rm -r debug.pcap
 	@rm -r iso/boot/kernel.bin
 	@rm -r .gdb_history
+
+.DEFAULT_GOAL := os.iso

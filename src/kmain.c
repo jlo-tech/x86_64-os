@@ -35,8 +35,9 @@ extern void idle_task_func();
 extern void user_func0();
 extern void user_func1();
 extern struct page_table page_id_ptr;
-char __attribute__((aligned(4096))) user_stack[4096];
 extern struct scheduler rrsched;
+
+static char user_stack[4096];
 
 void kmain(struct multiboot_information *mb_info)
 {
@@ -259,14 +260,15 @@ void kmain(struct multiboot_information *mb_info)
     struct tcb *idle_task = (struct tcb*)kmalloc(sizeof(struct tcb));
 #if 1
     tcb_init(idle_task);
-    idle_task->tid = 0;
+    idle_task->tid = -1;
     idle_task->state = RUNNABLE;
-    idle_task->regintr_ctx.cpu_context.rbp = 0;
+    idle_task->type = KERNEL_TASK;
+    idle_task->regintr_ctx.cpu_context.rbp = (u64)(&user_stack+512);
     idle_task->regintr_ctx.intr_context.rip = (u64)idle_task_func;
-    idle_task->regintr_ctx.intr_context.cs = (4 << 3) | 3;
+    idle_task->regintr_ctx.intr_context.cs = (1 << 3) | 3;
     idle_task->regintr_ctx.intr_context.rflags = 0x202;
-    idle_task->regintr_ctx.intr_context.rsp = 0;
-    idle_task->regintr_ctx.intr_context.ss = (3 << 3) | 3;
+    idle_task->regintr_ctx.intr_context.rsp = (u64)(user_stack+512);
+    idle_task->regintr_ctx.intr_context.ss = (2 << 3) | 3;;
     idle_task->vmm_ctx = &page_id_ptr;
     // Add idle task (very important for the scheduler)
     scheduler_add_task(&rrsched, idle_task);
@@ -276,8 +278,9 @@ void kmain(struct multiboot_information *mb_info)
     struct tcb *task0 = (struct tcb*)kmalloc(sizeof(struct tcb));
 #if 1
     tcb_init(task0);
-    task0->tid = 1;
+    task0->tid = 0;
     task0->state = RUNNABLE;
+    task0->type = USER_TASK;
     task0->regintr_ctx.cpu_context.rbp = (u64)(user_stack+2048);
     task0->regintr_ctx.intr_context.rip = (u64)user_func0;
     task0->regintr_ctx.intr_context.cs = (4 << 3) | 3;
@@ -293,8 +296,9 @@ void kmain(struct multiboot_information *mb_info)
     struct tcb *task1 = (struct tcb*)kmalloc(sizeof(struct tcb));
 #if 1
     tcb_init(task1);
-    task1->tid = 2;
+    task1->tid = 1;
     task1->state = RUNNABLE;
+    task1->type = USER_TASK;
     task1->regintr_ctx.cpu_context.rbp = (u64)(user_stack+2048);
     task1->regintr_ctx.intr_context.rip = (u64)user_func1;
     task1->regintr_ctx.intr_context.cs = (4 << 3) | 3;
@@ -305,11 +309,6 @@ void kmain(struct multiboot_information *mb_info)
     // Run task
     scheduler_kickstart(&rrsched, task1);
 #endif
-
-    // ---------------
-    // TODO: FIX: Crash by making idle_task run in ring 0 
-    //    -> keep tss in mind
-    // ---------------
 
     // Wait for interrupts
     while(1) 

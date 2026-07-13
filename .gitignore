@@ -5,3 +5,4 @@
 *.img
 *.swp
 *.pcap
+.DS_Store

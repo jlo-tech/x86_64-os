@@ -3,6 +3,7 @@
 #include <syscalls.h>
 
 extern void tss_load(u64);
+extern void schedule_kernel_task(struct tcb *task); // src/asm/interrupts.asm
 extern void schedule_task(struct tcb *task); // src/asm/interrupts.asm
 
 // Basic init of tcb
@@ -22,7 +23,12 @@ void tcb_init(struct tcb *tcb)
 
 void tcb_schedule(struct tcb *task)
 {
-    schedule_task(task);
+    if(task->type == KERNEL_TASK)
+        schedule_kernel_task(task);
+    else if(task->type == USER_TASK)
+        schedule_task(task);
+    else
+        asm ("hlt");
 }
 
 void scheduler_init(struct scheduler *sched)
@@ -60,6 +66,11 @@ struct tcb* scheduler_schedule(struct scheduler *sched, struct global_context *s
         // Search for next runnable task
         return scheduler_schedule_no_safe(sched);
     }
+}
+
+struct tcb* scheduler_get_current_task(struct scheduler *sched)
+{
+    return sched->curr_task;
 }
 
 // Simple round robin scheduling

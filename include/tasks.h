@@ -12,6 +12,11 @@ enum task_state {
     WAITING_FOR_KEYPRESS,
 };
 
+enum task_type {
+    KERNEL_TASK,
+    USER_TASK
+};
+
 // Thread/Task control block
 struct tcb 
 {
@@ -33,6 +38,9 @@ struct tcb
     // before it is woken up again
     void (*completion_callback)(struct tcb*);
 
+    // Task type
+    enum task_type type;
+
 } __attribute__((packed));
 
 void tcb_init(struct tcb *tcb);
@@ -51,6 +59,7 @@ struct scheduler
 void scheduler_init(struct scheduler *sched);
 void scheduler_add_task(struct scheduler *sched, struct tcb *tcb);
 void scheduler_kickstart(struct scheduler *sched, struct tcb *task);
+struct tcb* scheduler_get_current_task(struct scheduler *sched);
 struct tcb* scheduler_schedule(
     struct scheduler *sched, 
     struct global_context *saved_ctx);
