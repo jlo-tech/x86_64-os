@@ -256,7 +256,7 @@ void kmain(struct multiboot_information *mb_info)
 
     scheduler_init(&rrsched);
 
-    // TODO: NOTE: Must run in privileged mode if "hlt" instruction should be used, cause "hlt" is a privileged instruction
+    // NOTE: Must run in privileged mode if "hlt" instruction should be used, cause "hlt" is a privileged instruction
     struct tcb *idle_task = (struct tcb*)kmalloc(sizeof(struct tcb));
 #if 1
     tcb_init(idle_task);
